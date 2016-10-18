@@ -9,6 +9,7 @@ from PolygonUtils.PolygonUtils import getDistance, getCenterOfPoints3D, getNeare
 from PolygonUtils.AdjacencyList import AdjLstElement, copyAdjLstElement, getSharedEdgeStr
 
 
+
 class FunVecs(object):
     def __init__(self, start, left, lPt, right, rPt):
         self.startPt = start
@@ -109,7 +110,7 @@ class TriangulationAStarR(object):
 
         pathsVisited = []
         while self.open != []:
-            n = heapq.heappop(self.open)[1]
+            n = heapq.heappop(self.open)[1]  # open = [(]
             print "tri ind " + str(n.selfInd), " f: ", n.f
             isFirst = True
             bestF = 100000
@@ -472,10 +473,10 @@ class TriangulationAStarR(object):
                         funVecs.updateRight(sharedPts[0])
             # print "############## funnel loop ###################\n###########################################"
             # keep the indices moving so we don't start back all the way to where we first encountered the points
-            if funVecs.rPt is in channel[i].tri:
+            if funVecs.rPt in channel[i].tri:
                 rightInd = i
 
-            if funVecs.lPt is in channel[i].tri:
+            if funVecs.lPt in channel[i].tri:
                 leftInd = i
 
             # print "funVecs2", funVecs, "   i", i

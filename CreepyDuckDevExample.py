@@ -46,15 +46,16 @@ class DevTest(ShowBase):
         # 4) create a primitive and add the vertices via index (not truely associated with the actual vertex table, yet)
         tris = GeomTriangles(Geom.UHDynamic)
         tris.addVertices(0, 1, 2)
-        tris.closePrimitive()
+        tris.closePrimitive()  # exception thrown if verts added != 3, other types inform Panda how many verts/primitive
         tris.addVertices(2, 1, 3)
         print "vdataPoints", vdata.getArrays()[0]
-        # 5.1) (adding to scene) create a Geom and add the primitive
+        # 5.1) (adding to scene) create a Geom and add primitives of like base-type i.e. triangles and triangle strips
         geom = Geom(vdata)
         geom.addPrimitive(tris)
-
+        # 5.2) create a GeomNode to hold the Geom(s) and add the Geom(s)
         gn = GeomNode('gnode')
         gn.addGeom(geom)
+        # 5.3) attache the node to the scene
         gnNodePath = render.attachNewNode(gn)
 
         geomPts = Geom(vdata)

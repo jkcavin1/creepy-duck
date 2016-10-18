@@ -106,8 +106,3 @@ class Triangle(object):
     # def __repr__(self):
     #     sr = "Tri: < " + self.pt1 + ", " + self.pt2 + ", " + self.pt3 + " >"
     #     return "dmflksdj;fklj"
-
-
-
-if __name__ == '__main__':
-    app = Triangle()

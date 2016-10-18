@@ -16,6 +16,8 @@ from TriangulationAStarR import TriangulationAStarR
 from CcwShapes import HorseShoeCentered, SquareOffCenter, SquareMap10x10, TheirMap, CrossWithHole
 
 
+from computationalgeom.computational_triangle import ComputationalTriangle
+
 def drawInds(adjLst):
     from direct.gui.OnscreenText import OnscreenText
     indNP = render.attachNewNode('indsgroup')
