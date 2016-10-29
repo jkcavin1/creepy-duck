@@ -119,7 +119,7 @@ class AdjLstElement(Triangle):
 class AdjacencyList(object):
     def __init__(self, triangles):
         triLst = []
-        self.adjLst = []#triangles
+        self.adjLst = [] # triangles
         if isinstance(triangles, Triangulator):
             # get the full list of triangles because we can't search a partial list
             for i in range(0, triangles.getNumTriangles()):
