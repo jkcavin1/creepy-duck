@@ -8,6 +8,7 @@ from panda3d.core import Vec3, Vec4, Point3, Point4
 from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomPoints, GeomVertexFormat, GeomVertexRewriter
 
 from utilities.pandaHelperFuncs import PanditorEnableMouseFunc, PanditorDisableMouseFunc
+from computationalgeom import utilities
 
 from computationalgeom.triangulatorConstrainedDelaunay import Triangle, PrimitiveInterface  # Unit test Triangle
 
@@ -52,21 +53,35 @@ class Developer(ShowBase):
         print "t1", t1
         print "t2", t2
         c1 = t1.getCircumcircle()
-        print 't1 circumcircle', c1
         t1AsEnum = t1.asPointsEnum()
+        # check that each line is on the circle's edge
+
         r0 = (t1AsEnum.point0 - c1.center).length()
         r1 = (t1AsEnum.point1 - c1.center).length()
         r2 = (t1AsEnum.point2 - c1.center).length()
-        print "\nr0", r0, "r1", r1, "r2", r2
-        print 't2 circumcircle', t2.getCircumcircle()
+        assert abs(r0 - r2) < utilities.EPSILON and abs(r0 - r1) < utilities.EPSILON
         t2AsEnum = t2.asPointsEnum()
         c2 = t2.getCircumcircle()
         r0 = (t2AsEnum.point0 - c2.center).length()
         r1 = (t2AsEnum.point1 - c2.center).length()
         r2 = (t2AsEnum.point2 - c2.center).length()
-        print "\nr0", r0, "r1", r1, "r2", r2
-        pi = PrimitiveInterface(vdata, tris)
-        print "get 2 as points", pi.getTriangleAsPoints(1, t2._rewriter)
+        assert abs(r0 - r2) < utilities.EPSILON and abs(r0 - r1) < utilities.EPSILON
+
+        assert t1.getAngleDeg0() == 90.0
+        assert t1.getAngleDeg1() == t1.getAngleDeg2()
+
+        oldInd0 = t1.pointIndex0
+        oldInd1 = t1.pointIndex1
+        oldInd2 = t1.pointIndex2
+        t1.pointIndex0 = t1.pointIndex1
+        t1.pointIndex1 = oldInd0
+        assert t1.pointIndex0 == oldInd1
+        assert t1.pointIndex1 == oldInd0
+        assert t1.pointIndex0 != t1.pointIndex1
+        t1.reverse()
+        assert t1.pointIndex1 == oldInd2
+        print "t1", t1
+
         # 5.1) (adding to scene) create a Geom and add primitives of like base-type i.e. triangles and triangle strips
         geom = Geom(vdata)
         geom.addPrimitive(tris)

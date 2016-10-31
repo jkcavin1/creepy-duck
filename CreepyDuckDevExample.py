@@ -3,10 +3,8 @@
 
 from direct.showbase.ShowBase import ShowBase
 
-# ### TEST IMPORTS BELOW ####
 from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomPoints, GeomVertexFormat, GeomVertexRewriter
 from panda3d.core import Vec3, Vec4, Point3, Point4
-# ### TEST IMPORTS ABOVE ####
 
 from utilities.pandaHelperFuncs import PanditorEnableMouseFunc, PanditorDisableMouseFunc
 

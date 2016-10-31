@@ -1,15 +1,17 @@
 #!/usr/bin/python
 from collections import namedtuple
+import struct
 
+from panda3d.core import Thread
 from panda3d.core import Geom, GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexRewriter
 from panda3d.core import Point3
 
 from simpleCircle import SimpleCircle  # for the circumcircle
 from utilities import getIntersectionBetweenPoints
-from PolygonUtils.PolygonUtils import getDistance
 
 
 class PrimitiveInterface(object):
+    """Handles interfacing with GeomVertexData objects as well as GeomPrimitives"""
     @classmethod
     def readData3f(cls, ind, vreader):
         vreader.setRow(ind)
@@ -31,7 +33,6 @@ class PrimitiveInterface(object):
         return ind0, ind1, ind2
 
 
-    """Handles interfacing with GeomVertexData objects as well as GeomPrimitives"""
     def __init__(self, vdata, primitives):
         # TODO find a way to make only one per vdata
         self.vdata = vdata
@@ -40,15 +41,35 @@ class PrimitiveInterface(object):
     def getTriangleAsPoints(self, ind, vreader=None):
         if vreader is None:
             vreader = GeomVertexReader(self.vdata, 'vertex')
-        st = self.primitives.getPrimitiveStart(ind)
-        end = self.primitives.getPrimitiveEnd(ind)
         pts = []
-        for p in range(st, end):
-            vi = self.primitives.getVertex(p)
+        for vi in self.getTriangleVertexIndices(ind):
             vreader.setRow(vi)
             pt = vreader.getData3f()
             pts.append(Point3(*pt))
         return Triangle.TriangleTuple(pts[0], pts[1], pts[2])
+
+    def getTriangleVertexIndices(self, index):
+        st = self.primitives.getPrimitiveStart(index)
+        end = self.primitives.getPrimitiveEnd(index)
+        vertexIndicies = []
+        for i in range(st, end):
+            vertexIndicies.append(self.primitives.getVertex(i))
+        return vertexIndicies
+
+    def setTrianglePointIndex(self, triangleIndex, pointIndex, newVertexIndex):
+        triangleArry = self.primitives.modifyVertices()
+        triangleArry = triangleArry.modifyHandle(Thread.getCurrentThread())  # releases the array when deleted
+        bytesPerVert = triangleArry.getArrayFormat().getTotalBytes()
+
+        # BLOG C string to Python struct conversion https://docs.python.org/2/library/struct.html#format-characters
+        fmtStr = triangleArry.getArrayFormat().getFormatString(False)  # True pads the bytes
+        if fmtStr[0] != '=':
+            fmtStr = '=' + fmtStr  # use standard sizing w/ = or native w/ @
+
+        readerWriter = struct.Struct(fmtStr)  # creating the class instance saves on compiling the format string
+        packed = readerWriter.pack(newVertexIndex)
+        triangleArry.setSubdata(triangleIndex * bytesPerVert * 3 + pointIndex * bytesPerVert, bytesPerVert, packed)
+
 
 
 class Triangle(object):
@@ -74,6 +95,9 @@ class Triangle(object):
     def asPointsEnum(self):
         return self._primitiveInterface.getTriangleAsPoints(self._selfIndex, vreader=self._rewriter)
 
+    def asIndexList(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)
+
     @property
     def point0(self):
         return self.asPointsEnum().point0
@@ -85,6 +109,76 @@ class Triangle(object):
     @property
     def point2(self):
         return self.asPointsEnum().point2
+
+    @property
+    def pointIndex0(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[0]
+
+    @property
+    def pointIndex1(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[1]
+
+    @property
+    def pointIndex2(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[2]
+
+    @pointIndex0.setter
+    def pointIndex0(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 0, value)
+
+    @pointIndex1.setter
+    def pointIndex1(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 1, value)
+
+    @pointIndex2.setter
+    def pointIndex2(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 2, value)
+
+    def getAngleDeg0(self):
+        slf = self.asPointsEnum()
+        edge1 = slf.point1 - slf.point0
+        edge2 = slf.point2 - slf.point0
+        edge1.normalize()
+        edge2.normalize()
+        return edge1.angleDeg(edge2)
+
+    def getAngleDeg1(self):
+        slf = self.asPointsEnum()
+        edge1 = slf.point0 - slf.point1
+        edge2 = slf.point2 - slf.point1
+        edge1.normalize()
+        edge2.normalize()
+        return edge1.angleDeg(edge2)
+
+    def getAngleDeg2(self):
+        slf = self.asPointsEnum()
+        edge1 = slf.point0 - slf.point2
+        edge2 = slf.point1 - slf.point2
+        edge1.normalize()
+        edge2.normalize()
+        return edge1.angleDeg(edge2)
+
+    def getCircumcircle(self):
+        slf = self.asPointsEnum()
+
+        edge1 = slf.point1 - slf.point0
+        edge2 = slf.point2 - slf.point0
+
+        norm = edge1.cross(edge2)
+        norm.normalize()
+
+        tanToVec1 = norm.cross(edge1)
+        tanToVec2 = norm.cross(edge2)
+
+        # the circumcircle is centered at the intersecting tangents at the midpoints of each edge (we need only 2)
+        midPt1 = (slf.point0 + slf.point1) / 2
+        midPt2 = (slf.point0 + slf.point2) / 2
+
+        pt1 = Point3(tanToVec1 + midPt1)
+        pt2 = Point3(tanToVec2 + midPt2)
+
+        center = getIntersectionBetweenPoints(midPt1, pt1, pt2, midPt2)
+        return SimpleCircle(center, (center - slf.point0).length())
 
     def getMidPoint0(self):
         slf = self.asPointsEnum()
@@ -110,34 +204,14 @@ class Triangle(object):
         slf = self.asPointsEnum()
         return slf.point0 - slf.point2
 
-    def getCircumcircle(self):
-        slf = self.asPointsEnum()
-        # Get 2 edge mid points:
-        # 0 to use to get the center after the projection by adding this point to the vector pointing at the center.
-        # 1 to project onto the tangent of the 1st edge
-        midPt0 = (slf.point0 + slf.point1) / 2  # edge with tangent
-        midPt1 = (slf.point0 + slf.point2) / 2  # midVec (projected onto tangent)
-        # get the vectors of the sides corresponding to the midpoints
-        vec0 = slf.point1 - slf.point0  # tangent
-        vec1 = slf.point2 - slf.point0  # midPt1
-        # get the normal
-        norm = vec0.cross(vec1)
-        norm.normalize()
-        # get the tangent
-        tanToVec0 = norm.cross(vec0)
-        # BOTTOM of http://paulbourke.net/geometry/pointlineplane/  ####################################
-        tanToVec1 = norm.cross(vec1)
-        print "tan to 0", tanToVec0, "\ntan to 1", tanToVec1
-        pt1 = Point3(tanToVec0 + midPt0)
-        pt2 = Point3(tanToVec1 + midPt1)
-        center = getIntersectionBetweenPoints(midPt0, pt1, pt2, midPt1)
-        return SimpleCircle(center, (center - slf.point0).length())
+    def reverse(self):
+        tmp = self.pointIndex1
+        self.pointIndex1 = self.pointIndex2
+        self.pointIndex2 = tmp
 
     def __str__(self):
-        # slf = self.asPointsEnum()
-        s = "Triangle index {0} ".format(self._selfIndex)
-        s += ' point0 {0}  point1 {1} point2 {2}'.format(self.point0, self.point1, self.point2)
-        return s
+        return "Triangle {0}:\n\tpoint0 {1}  point1 {2} point2 {3}".format(self._selfIndex,
+                                                                           self.point0, self.point1, self.point2)
 
 
 class TriangulatorConstrainedDelaunay(object):

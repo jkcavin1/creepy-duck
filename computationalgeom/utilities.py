@@ -2,6 +2,8 @@
 
 from panda3d.core import Point3
 
+EPSILON = 0.002
+
 def getIntersectionBetweenPoints(pt0, pt1, pt2, pt3):
 
     denominator = (pt3.y - pt2.y)*(pt1.x - pt0.x) - (pt3.x - pt2.x)*(pt1.y - pt0.y)
