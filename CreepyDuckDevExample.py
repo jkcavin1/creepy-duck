@@ -4,8 +4,7 @@
 from direct.showbase.ShowBase import ShowBase
 
 from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomPoints, GeomVertexFormat, GeomVertexRewriter
-from panda3d.core import Vec3, Vec4, Point3, Point4
-
+from panda3d.core import Vec3, Vec4
 from utilities.pandaHelperFuncs import PanditorEnableMouseFunc, PanditorDisableMouseFunc
 
 class DevTest(ShowBase):

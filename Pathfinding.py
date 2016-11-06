@@ -1,22 +1,19 @@
 __author__ = 'Lab Hatter'
 
 # from panda3d.core import ConfigVariablString
-import exceptions
 # from panda3d.core import GeomVertexFormat, GeomVertexData, GeomLines
 # from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexWriter, ModelNode, NodePath
-from panda3d.core import Vec3, Vec4, Point3
-from panda3d.core import RenderModeAttrib, LineSegs
 from direct.showbase.ShowBase import ShowBase
+
+from panda3d.core import Point3
+from panda3d.core import RenderModeAttrib, LineSegs
 from utilities.pandaHelperFuncs import PanditorEnableMouseFunc, PanditorDisableMouseFunc
-import math
 from PolygonUtils.AdjacencyList import AdjacencyList, makeTriMesh
 from PolygonUtils.PolygonUtils import getCenterOfPoints3D
-from PolygonUtils.PolygonUtils import getNearestPointOnLine, isPointInWedge
 from TriangulationAStarR import TriangulationAStarR
-from CcwShapes import HorseShoeCentered, SquareOffCenter, SquareMap10x10, TheirMap, CrossWithHole
+from CcwShapes import CrossWithHole
 
 
-from computationalgeom.computational_triangle import ComputationalTriangle
 
 def drawInds(adjLst):
     from direct.gui.OnscreenText import OnscreenText

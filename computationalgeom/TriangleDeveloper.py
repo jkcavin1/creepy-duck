@@ -2,24 +2,23 @@
 
 
 from direct.showbase.ShowBase import ShowBase
+from pandac.PandaModules import WindowProperties
 
-from panda3d.core import RenderModeAttrib
-from panda3d.core import Vec3, Vec4, Point3, Point4
-from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomPoints, GeomVertexFormat, GeomVertexRewriter
+from panda3d.core import RenderModeAttrib, LineSegs
+from panda3d.core import Vec3, Vec4, Point3
+from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomVertexFormat, GeomVertexRewriter
+from utilities import pandaHelperFuncs as PHF
+import utils as utilities
+from triangle import Triangle  # Unit test Triangle
 
-from utilities.pandaHelperFuncs import PanditorEnableMouseFunc, PanditorDisableMouseFunc
-from computationalgeom import utilities
-
-from computationalgeom.triangulatorConstrainedDelaunay import Triangle, PrimitiveInterface  # Unit test Triangle
 
 class Developer(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
-
-        PanditorDisableMouseFunc()
-        camera.setPos(0.0, 0.0, 50.0)
-        camera.lookAt(0.0)
-        PanditorEnableMouseFunc()
+        winProps = WindowProperties()
+        winProps.setTitle("Triangle and SimpleCircle Unittest")
+        # base.win.requestProperties(winProps) (same as below e.g. self == base)
+        self.win.requestProperties(winProps)
 
 
         # 1) create GeomVertexData
@@ -50,12 +49,8 @@ class Developer(ShowBase):
         tris = GeomTriangles(Geom.UHDynamic)
         t1 = Triangle(0, 1, 2, vdata, tris, vertex)
         t2 = Triangle(2, 1, 3, vdata, tris, vertex)
-        print "t1", t1
-        print "t2", t2
         c1 = t1.getCircumcircle()
         t1AsEnum = t1.asPointsEnum()
-        # check that each line is on the circle's edge
-
         r0 = (t1AsEnum.point0 - c1.center).length()
         r1 = (t1AsEnum.point1 - c1.center).length()
         r2 = (t1AsEnum.point2 - c1.center).length()
@@ -80,7 +75,6 @@ class Developer(ShowBase):
         assert t1.pointIndex0 != t1.pointIndex1
         t1.reverse()
         assert t1.pointIndex1 == oldInd2
-        print "t1", t1
 
         # 5.1) (adding to scene) create a Geom and add primitives of like base-type i.e. triangles and triangle strips
         geom = Geom(vdata)
@@ -97,6 +91,48 @@ class Developer(ShowBase):
         wireNP.setColor(0.1, 0.1, 0.1, 1)
         wireNP.setRenderMode(RenderModeAttrib.MWireframe, .5, 0)
         gnNodePath.instanceTo(wireNP)
+
+        # test and draw intersections and circles
+        pt1 = Point3(0.0, 5.0, 0.0)
+        pt2 = Point3(1.0, 5.0, 0.0)
+        intersection = t2.getIntersectionsWithCircumcircle(pt1, pt2)
+        circle = t2.getCircumcircle()
+        cuts = 128
+        border = circle.getBorder(cuts, closed=True)
+        assert len(border) == cuts or (len(border) == cuts + 1 and border[0] == border[len(border) - 1])
+        n = len(border)
+        xMid = yMid = 0
+        for p in border:
+            xMid += p.x
+            yMid += p.y
+        mid = Point3(xMid / n, yMid / n, border[0].z)
+        assert mid.almostEqual(circle.center, 0.06)
+        assert t2.isCcw()
+        assert t1.containsPoint(c1.center) != t1.containsPoint(c1.center, includeEdges=False)
+
+        circleSegs = LineSegs("circleLines")
+        circleSegs.setColor(1.0, 0.0, 0.0, 1.0)
+        for p in border:
+            circleSegs.drawTo(*p)
+        circleNode = circleSegs.create(False)
+        circleNP = render.attachNewNode(circleNode)
+        circleNP.setZ(-5)
+
+        originSpot = LineSegs("intersection")
+        originSpot.setColor(1.0, 0.0, 0.0, 1.0)
+        originSpot.setThickness(10)
+        for p in intersection:
+            originSpot.drawTo(p)
+        spotNode = originSpot.create(False)
+        spotNP = render.attachNewNode(spotNode)
+        circleNP.setZ(-0.75)
+
+        # fix the camera rot/pos
+        PHF.PanditorDisableMouseFunc()
+        camera.setPos(0.0, 0.0, 50.0)
+        camera.lookAt(c2.center)
+        PHF.PanditorEnableMouseFunc()
+
 
         # TODO port the triangle-indices node func drawInds(...)
         #render.ls()
