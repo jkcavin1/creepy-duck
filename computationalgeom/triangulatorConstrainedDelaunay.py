@@ -1,28 +1,183 @@
 #!/usr/bin/python
+import heapq
 
-from panda3d.core import Geom, GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexRewriter
+from panda3d.core import Geom, GeomVertexData, GeomVertexFormat, GeomTriangles, GeomVertexReader, GeomVertexRewriter
 from panda3d.core import Thread
 from panda3d.core import Point3
 
 from triangle import Triangle
+from utils import getIntersectionBetweenPoints
+
+
+class ConstrainedDelaunayTriangle(Triangle):
+    __slots__ = ('_neighbor0', '_neighbor1', '_neighbor2', )
+    def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
+        super(ConstrainedDelaunayTriangle, self).__init__(vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter)
+        self._neighbor0 = None
+        self._neighbor1 = None
+        self._neighbor2 = None
+
+
+
+class ConstrainedDelaunayHoleTriangle(ConstrainedDelaunayTriangle):
+    def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
+        super(ConstrainedDelaunayHoleTriangle, self).__init__(vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter)
+
 
 
 class TriangulatorConstrainedDelaunay(object):
     """Creates a Constrained Delaunay Triangulation"""
     def __init__(self, name='ConstrainedDelaunayTriangles', geomVertexDataObj=None,
                  format=GeomVertexFormat.getV3(), usage=Geom.UHDynamic,
-                 onVertexCreationCallback=None, universalZ=0):
+                 onVertexCreationCallback=None, universalZ=0.0):
 
         if geomVertexDataObj is None:
             geomVertexDataObj = GeomVertexData(name, format, usage)
         self.vertexData = geomVertexDataObj
-        # self.vertexRewriter = GeomVertexRewriter(self.vertexData, 'vertex')
+        self.geomTriangles = GeomTriangles(usage)
+        self.vertexRewriter = GeomVertexRewriter(self.vertexData, 'vertex')
+
 
         if onVertexCreationCallback is None:
-            onVertexCreationCallback = lambda vdata: None
-        self._onVertexCreationCallback = onVertexCreationCallback
+            onVertexCreationCallback = lambda x, y, z: None
+        self.vertexCallback = onVertexCreationCallback
 
         self.universalZ = universalZ
+        self.__holes = [[]]
+        self.__polygon = []
+        self.bounds = {
+            'minX': 50000.0,
+            'maxX': -50000.0,
+            'minY': 50000.0,
+            'maxY': -50000.0,
+        }
+        self.lastStaticVertexIndex = -1
 
-    def addPolygonVertex(self, ind):
-        pass
+
+
+    def addHoleVertex(self, index):
+        """Adds the next consecutive vertex of the current hole."""
+        self.__holes[-1].append(index)
+
+    def addPolygonVertex(self, index):
+        """Adds the next consecutive vertex of the polygon."""
+        self.__polygon.append(index)
+
+    def _addVertex(self, x, y, z):
+        # BLOG track bounds to create the encapsulating triangle rather than lexicographic ordering
+        # BLOG could have used a heap while adding verts, then popped as we processed each vertex
+        if x < self.bounds['minX']:
+            self.bounds['minX'] = x
+        if x > self.bounds['maxX']:
+            self.bounds['maxX'] = x
+
+        if y < self.bounds['minY']:
+            self.bounds['minY'] = y
+        if y > self.bounds['maxY']:
+            self.bounds['maxY'] = y
+
+        if not self.vertexRewriter.isAtEnd():
+            self.vertexRewriter.setWriteRow(self.vertexData.getNumRows())
+        n = self.vertexRewriter.getWriteRow()
+        self.vertexRewriter.addData3f(x, y, self.universalZ)
+        self.vertexCallback(x, y, self.universalZ)
+        return n
+
+    def addVertex(self, pointOrX, y=None, z=None):
+        """Adds a new vertex to the vertex pool."""
+        if hasattr(pointOrX, 'y'):  # if the first argument is a point expand and call the backing function
+            return self._addVertex(*pointOrX)
+        return self._addVertex(pointOrX, y, z)
+
+    def addVertexToPolygon(self, pointOrX, y, z):
+        """Adds a vertex to the pool and then adds its index to the polygon vertex index list."""
+        n = self.addVertex(pointOrX, y, z)
+        self.addPolygonVertex(n)
+        return n
+
+    def addVertexToHole(self, pointOrX, y, z):
+        """Adds a vertex to the pool and then adds its index to the polygon vertex index list."""
+        n = self.addVertex(pointOrX, y, z)
+        self.addHoleVertex(n)
+        return n
+    
+    def beginHole(self):
+        """Finishes the previous hole, if any, and prepares to add a new hole."""
+        if self.__holes[-1]:  # if the last hole (list of vertices) is empty use it as the next hole
+            self.__holes.append([])
+    
+    def clear(self):
+        """Removes all vertices and polygon specifications from the Triangulator, and prepares it to start over."""
+        raise NotImplementedError("""TriangulatorConstrainedDelaunay.clear() is not implemented.""")
+    
+    def clearPolygon(self):
+        """Removes the current polygon definition (and its set of holes), but does not clear the vertex pool."""
+        raise NotImplementedError("""TriangulatorConstrainedDelaunay.clearPolygon() is not implemented.""")
+    
+    def getNumTriangles(self):
+        """Returns the number of triangles generated by the previous call to triangulate()."""
+        return self.geomTriangles.getNumPrimitives()
+    
+    def getNumVertices(self):
+        """Returns the number of vertices in the pool."""
+        return self.vertexData.getNumRows()
+    
+    def getTriangleV0(self, n):
+        """Returns vertex 0 of the nth triangle generated by the previous call to triangulate()."""
+        try:
+            self.__polygon[n].pointIndex0()
+        except AttributeError:  # BLOG switching errors to clarify the cause
+            raise LookupError("Must call triangulate() before querieing for a triangle's vertices.")
+    
+    def getTriangleV1(self, n):
+        """Returns vertex 1 of the nth triangle generated by the previous call to triangulate()."""
+        try:
+            self.__polygon[n].pointIndex1()
+        except AttributeError:  # BLOG switching errors to clarify the cause
+            raise LookupError("Must call triangulate() before querieing for a triangle's vertices.")
+    
+    def getTriangleV2(self, n):
+        """Returns vertex 2 of the nth triangle generated by the previous call to triangulate()."""
+        try:
+            self.__polygon[n].pointIndex2()
+        except AttributeError:  # BLOG switching errors to clarify the cause
+            raise LookupError("Must call triangulate() before querieing for a triangle's vertices.")
+    
+    def getVertex(self, n):
+        """Returns the nth vertex."""
+        self.vertexRewriter.setRow(n)
+        return self.vertexRewriter.getData3f()
+    
+    def getVertices(self):
+        """Returns a list of vertices."""
+        verts = []
+        for i in range(0, self.vertexData.getNumRows()):
+            self.vertexRewriter.setRow(i)
+            verts.append(self.vertexRewriter.getData3f())
+        return verts
+    
+    def isLeftWinding(self):
+        """Returns true if the polygon vertices are listed in counterclockwise order,
+        or false if they appear to be listed in clockwise order."""
+        return self.__polygon[0].isCcw()
+    
+    def triangulate(self):
+        """Does the work of triangulating the specified polygon."""
+        h = self.bounds['maxY'] - self.bounds['minY']
+        w = self.bounds['maxX'] - self.bounds['minX']
+        topLeft = Point3(self.bounds['minX'],         # far left x
+                         self.bounds['maxY'] + h/2,   # creates a triangle twice as tall as the square
+                         self.universalZ)
+        bottomLeft = Point3(self.bounds['minX'],
+                            self.bounds['minY'] - h/2,
+                            self.universalZ)
+        farRight = getIntersectionBetweenPoints(topLeft,  # line 0 point 0
+                                                Point3(self.bounds['maxX'], self.bounds['maxY'], self.universalZ),
+                                                bottomLeft,  # line 1 point 0
+                                                Point3(self.bounds['maxX'], self.bounds['minY'], self.universalZ))
+        self.lastStaticVertexIndex = self.getNumVertices() - 1  # any vertices added after create CDT as opposed to DT
+        v0 = self.addVertex(topLeft)
+        v1 = self.addVertex(bottomLeft)
+        v2 = self.addVertex(farRight)
+        triangulated = [ConstrainedDelaunayTriangle(v0, v1, v2,
+                                                    self.vertexData, self.geomTriangles, self.vertexRewriter)]

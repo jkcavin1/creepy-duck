@@ -100,6 +100,10 @@ class Triangle(object):
         return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)
 
     @property
+    def index(self):
+        return self._selfIndex
+
+    @property
     def point0(self):
         return self.asPointsEnum().point0
 
