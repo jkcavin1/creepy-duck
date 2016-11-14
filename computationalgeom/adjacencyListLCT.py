@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from triangulatorConstrainedDelaunay import TriangulatorConstrainedDelaunay, Triangle, SimpleCircle
+from constrainedDelaunayTriangulator import ConstrainedDelaunayTriangulator, Triangle, SimpleCircle
 
 
 class LocalClearanceAdjacencyTriangle(Triangle):
@@ -12,5 +12,5 @@ class LocalClearanceAdjacencyTriangle(Triangle):
 class LocalClearanceAdjacencyList(object):
     def __init__(self, vertexData, geomTriangles, rewriter):
 
-# class AdjacencyListCDT(TriangulatorConstrainedDelaunay):
+# class AdjacencyListCDT(ConstrainedDelaunayTriangulator):
 #     """An Adjacency List made of a Constrained Delaunay Triangulation using Panda3D's vertex system"""

@@ -99,45 +99,22 @@ class Triangle(object):
     def asIndexList(self):
         return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)
 
-    @property
-    def index(self):
-        return self._selfIndex
-
-    @property
-    def point0(self):
-        return self.asPointsEnum().point0
-
-    @property
-    def point1(self):
-        return self.asPointsEnum().point1
-
-    @property
-    def point2(self):
-        return self.asPointsEnum().point2
-
-    @property
-    def pointIndex0(self):
-        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[0]
-
-    @property
-    def pointIndex1(self):
-        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[1]
-
-    @property
-    def pointIndex2(self):
-        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[2]
-
-    @pointIndex0.setter
-    def pointIndex0(self, value):
-        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 0, value)
-
-    @pointIndex1.setter
-    def pointIndex1(self, value):
-        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 1, value)
-
-    @pointIndex2.setter
-    def pointIndex2(self, value):
-        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 2, value)
+    def containsPoint(self, point, includeEdges=True):
+        slf = self.asPointsEnum()
+        v1 = slf.point2 - slf.point0
+        pv1 = point - slf.point0
+        v2 = slf.point1 - slf.point2
+        pv2 = point - slf.point2
+        v3 = slf.point0 - slf.point1
+        pv3 = point - slf.point1
+        if not self.isLeftWinding():
+            v1 = -v1
+            v2 = -v2
+            v3 = -v3
+        if includeEdges:
+            return v1.cross(pv1).z <= 0 and v2.cross(pv2).z <= 0 and v3.cross(pv3).z <= 0
+        else:
+            return v1.cross(pv1).z < 0 and v2.cross(pv2).z < 0 and v3.cross(pv3).z < 0
 
     def getAngleDeg0(self):
         slf = self.asPointsEnum()
@@ -221,33 +198,95 @@ class Triangle(object):
         slf = self.asPointsEnum()
         return slf.point0 - slf.point2
 
-    def isCcw(self):
+    @property
+    def index(self):
+        return self._selfIndex
+
+    def isLeftWinding(self):
         slf = self.asPointsEnum()
         v1 = slf.point1 - slf.point0
         v2 = (slf.point2 + slf.point1) / 2 - slf.point0
         return v1.cross(v2).z > 0
 
-    def containsPoint(self, point, includeEdges=True):
-        slf = self.asPointsEnum()
-        v1 = slf.point2 - slf.point0
-        pv1 = point - slf.point0
-        v2 = slf.point1 - slf.point2
-        pv2 = point - slf.point2
-        v3 = slf.point0 - slf.point1
-        pv3 = point - slf.point1
-        if not self.isCcw():
-            v1 = -v1
-            v2 = -v2
-            v3 = -v3
-        if includeEdges:
-            return v1.cross(pv1).z <= 0 and v2.cross(pv2).z <= 0 and v3.cross(pv3).z <= 0
-        else:
-            return v1.cross(pv1).z < 0 and v2.cross(pv2).z < 0 and v3.cross(pv3).z < 0
+    @property
+    def point0(self):
+        return self.asPointsEnum().point0
+
+    @property
+    def point1(self):
+        return self.asPointsEnum().point1
+
+    @property
+    def point2(self):
+        return self.asPointsEnum().point2
+
+    @property
+    def pointIndex0(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[0]
+
+    @property
+    def pointIndex1(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[1]
+
+    @property
+    def pointIndex2(self):
+        return self._primitiveInterface.getTriangleVertexIndices(self._selfIndex)[2]
+
+    @pointIndex0.setter
+    def pointIndex0(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 0, value)
+
+    @pointIndex1.setter
+    def pointIndex1(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 1, value)
+
+    @pointIndex2.setter
+    def pointIndex2(self, value):
+        self._primitiveInterface.setTrianglePointIndex(self._selfIndex, 2, value)
 
     def reverse(self):
         tmp = self.pointIndex1
         self.pointIndex1 = self.pointIndex2
         self.pointIndex2 = tmp
+
+    def setIndex(self, value):
+        self._selfIndex = value
+
+    def __gt__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex > other.index
+        else:
+            return self._selfIndex > other
+
+    def __ge__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex >= other.index
+        else:
+            return self._selfIndex >= other
+
+    def __eq__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex == other.index
+        else:
+            return self._selfIndex == other
+
+    def __ne__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex != other.index
+        else:
+            return self._selfIndex != other
+
+    def __le__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex <= other.index
+        else:
+            return self._selfIndex <= other
+
+    def __lt__(self, other):
+        if isinstance(other, Triangle):
+            return self._selfIndex < other.index
+        else:
+            return self._selfIndex < other
 
     def __str__(self):
         return "Triangle {0}:\n\tpoint0 {1}  point1 {2} point2 {3}".format(self._selfIndex,
