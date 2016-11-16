@@ -163,6 +163,9 @@ class Triangle(object):
         # return SimpleCircle(center, (center - slf.point0).length())
         return SimpleCircle(center, (center - slf.point0).length())
 
+    def getIndices(self):
+        return self.pointIndex0, self.pointIndex1, self.pointIndex2
+
     def getIntersectionsWithCircumcircle(self, point1, point2, tolerance=EPSILON):
         circle = self.getCircumcircle()
         return circle.getIntersectionsWithLine(point1, point2, tolerance=tolerance)
@@ -185,6 +188,24 @@ class Triangle(object):
         if ang1 < minAng:
             minAng = ang1
         return min(self.getAngleDeg2(), minAng)
+
+    def getOccupiedEdge(self, point, slf=None):
+        if not isinstance(slf, Triangle.TriangleTuple):
+            slf = self.asPointsEnum()
+
+        edge0 = slf.point1 - slf.point0
+        edge1 = slf.point2 - slf.point1
+        edge2 = slf.point0 - slf.point2
+        # BLOG coding defensively. (This would actually be optimal if it shortcuts, but it's best to test assumptions.)
+        onEdge = ''
+        if edge0.cross(point - slf.point0).z == 0.0:  # only occurs if the point is on the line.
+            onEdge += '0'
+        if edge1.cross(point - slf.point1).z == 0.0:
+            onEdge += '1'
+        if edge2.cross(point - slf.point2).z == 0.0:
+            onEdge += '2'
+
+        return onEdge
 
     def getVec0(self):
         slf = self.asPointsEnum()
@@ -252,6 +273,33 @@ class Triangle(object):
     def setIndex(self, value):
         self._selfIndex = value
 
+    def sharedFeatures(self, other):
+        inds = other.getIndices()
+        shared = ''
+        d = {'point0': False, 'point1': False, 'point2': False, 'edge0': False, 'edge1': False, 'edge2': False}
+        if self.pointIndex0 in inds:
+            d['point0'] = True
+            shared += '0'
+        if self.pointIndex1 in inds:
+            if shared:
+                d['edge0'] = True
+            d['point1'] = True
+            shared += '1'
+        if self.pointIndex2 in inds:
+            if shared == '0':
+                d['edge2'] = True
+            elif shared == '1':
+                d['edge1'] = True
+            elif shared == '01':
+                d['edge0'] = True
+                d['edge1'] = True
+                d['edge2'] = True
+            d['point2'] = True
+        if shared:
+            return d
+        else:
+            return {}
+
     def __gt__(self, other):
         if isinstance(other, Triangle):
             return self._selfIndex > other.index
@@ -289,5 +337,7 @@ class Triangle(object):
             return self._selfIndex < other
 
     def __str__(self):
-        return "Triangle {0}:\n\tpoint0 {1}  point1 {2} point2 {3}".format(self._selfIndex,
-                                                                           self.point0, self.point1, self.point2)
+        return str(self.__class__) + " {0}:\n\tpoint0 {1}  point1 {2} point2 {3}".format(self._selfIndex,
+                                                                                         self.point0,
+                                                                                         self.point1,
+                                                                                         self.point2)

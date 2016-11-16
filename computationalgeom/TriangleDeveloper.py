@@ -44,7 +44,7 @@ class Developer(ShowBase):
         triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
         triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
-        triangulator.addVertexToPolygon(15.0, 15.0, 0.0)
+        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 

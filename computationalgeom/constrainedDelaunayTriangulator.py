@@ -20,22 +20,87 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         self._neighbor1 = None
         self._neighbor2 = None
 
-    def triangulatePoint(self, pointIndex):
+    def getNeighbors(self):
+        return self._neighbor0, self._neighbor1, self._neighbor2
+
+    def _split(self, pointIndex, triangle1Position, triangle2Position):
+        """
+        Where i is the pointIndex position, this only supports:
+        Tri 1 | Tri 2
+        0,1,i | i,1,2
+        0,1,i | 0,i,2
+        0,i,2 | i,1,2
+        """
+        # BLOG herding cats: Use defaults with exceptions and other tricks to keep things on the expected track--test assumptions
+        # BLOG the biggest Pain in the Ass Function (for my user) that I've ever written
+        if triangle2Position == 0:
+            newListTriangle = ConstrainedDelaunayAdjacencyTriangle(pointIndex, self.pointIndex1, self.pointIndex2,
+                                                                   self._primitiveInterface.vdata,
+                                                                   self._primitiveInterface.primitives,
+                                                                   self._rewriter)
+        elif triangle2Position == 1:
+            newListTriangle = ConstrainedDelaunayAdjacencyTriangle(self.pointIndex0, pointIndex, self.pointIndex2,
+                                                                   self._primitiveInterface.vdata,
+                                                                   self._primitiveInterface.primitives,
+                                                                   self._rewriter)
+        else:
+            raise IndexError("Position index must be 0 or 1")
+
+        if triangle1Position == 1:
+            assert triangle2Position == 0
+            self.pointIndex1 = pointIndex
+        elif triangle1Position == 2:
+            assert triangle2Position == 0 or triangle2Position == 1
+            self.pointIndex2 = pointIndex
+        else:
+            raise IndexError("Position index must be 1 or 2")
+
+        return newListTriangle
+
+    def _setNeighbors0(self, newTriangle):
+        newTriangle._neighbor1 = self._neighbor1
+        self._neighbor1 = newTriangle.index
+        newTriangle._neighbor2 = self.index
+
+    def _setNeighbors1(self, newTriangle):
+        newTriangle._neighbor2 = self._neighbor2
+        self._neighbor2 = newTriangle.index
+        newTriangle._neighbor0 = self.index
+
+    def _setNeighbors2(self, newTriangle):
+        newTriangle._neighbor1 = self._neighbor1
+        self._neighbor1 = newTriangle.index
+        newTriangle._neighbor0 = self.index
+
+    def triangulatePoint(self, pointIndex, triangleList):
         self._rewriter.setRow(pointIndex)
         point = self._rewriter.getData3f()
         slf = self.asPointsEnum()
 
-        if point == slf.point0 or point == slf.point1 or point == slf.point2:
-            ValueError("Duplicate point added to the triangulation.")
-
         if self.containsPoint(point, includeEdges=False):
             # if the point is on the interior
-            newTriangles = self.triangulateSelf(pointIndex)
+            return self._triangulateSelf(pointIndex)
         else:
             # if the point is on the edge
-            newTriangles = self.triangulateEdge(pointIndex, point, slf)
+            newTriangle, onEdge = self._triangulateEdge(pointIndex, point, slf)
+            if onEdge == '2' and self._neighbor2 is not None:  # triangulate the neighbor on the edge incident to the point
+                return triangleList[self._neighbor2]._triangulateOtherEdge(pointIndex,
+                                                                           point, onEdge,
+                                                                           self, newTriangle)
+            elif onEdge == '1' and self._neighbor1 is not None:
+                return triangleList[self._neighbor1]._triangulateOtherEdge(pointIndex,
+                                                                           point, onEdge,
+                                                                           self, newTriangle)
+            elif onEdge == '0' and self._neighbor0 is not None:
+                return triangleList[self._neighbor0]._triangulateOtherEdge(pointIndex,
+                                                                           point, onEdge,
+                                                                           self, newTriangle)
+            else:
+                return newTriangle,
 
-    def triangulateSelf(self, pointIndex):
+    def _triangulateSelf(self, pointIndex):
+        """Triangulate the triangle when the dividing point occurs on the edge, resulting in this and the neighboring
+        triangle getting split."""
         pInd2 = self.pointIndex2
         pInd1 = self.pointIndex1
         pInd0 = self.pointIndex0
@@ -59,10 +124,89 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         self._neighbor1 = newTriangle2.index
         newTriangle2._neighbor2 = self.index
 
-        return newTriangle1, newTriangle2
+        if newTriangle1 < newTriangle2:
+            return newTriangle1, newTriangle2
+        else:
+            return newTriangle2, newTriangle1
 
-    def triangulateEdge(self, pointIndex, point, slf):
+    def _triangulateEdge(self, pointIndex, point, slf):
+        """Triangulate the triangle when the dividing point lies in the boundary."""
+        onEdge = self.getOccupiedEdge(point, slf)
+        if onEdge == '2':
+            newTriangle = self._split(pointIndex, 2, 0)
+            self._setNeighbors2(newTriangle)
+        elif onEdge == '1':
+            newTriangle = self._split(pointIndex, 2, 1)
+            self._setNeighbors1(newTriangle)
+        elif onEdge == '0':
+            newTriangle = self._split(pointIndex, 1, 0)
+            self._setNeighbors0(newTriangle)
+        elif len(onEdge) == 0:
+            raise ValueError("Triangulation of point that is not on this triangle's edge: " +
+                             str(point) + " triangle: " + self.__str__())
+        elif len(onEdge) > 1:
+            raise ValueError("Triangulation of point that's already a triangulated point: " +
+                             str(point) + " triangle: " + self.__str__())
+        else:
+            raise ValueError("Unkown Error with point on edge point:" + str(point) + " edge: " + onEdge + self.__str__())
+        return newTriangle, onEdge
 
+    def _triangulateOtherEdge(self, pointIndex, point, originatorsEdge, originator, originatorsNewTriangle):
+        """Triangulate self when another triangle is initiating the triangulation"""
+        thisNewTriangle, onEdge = self._triangulateEdge(pointIndex, point, self.asPointsEnum())
+        edgeWithOriginator = self.sharedFeatures(originator)
+        # BLOG beautiful: only need to test for a shared edge on 1 of 4 possible relationships
+        if edgeWithOriginator:
+            # Thus, the two new triangles share and edge. Plus, both, new and old, always need set on the same side
+            if onEdge == '0':
+                self._neighbor0 = originator.index
+                thisNewTriangle._neighbor0 = originatorsNewTriangle.index
+            elif onEdge == '1':
+                self._neighbor1 = originator.index
+                thisNewTriangle._neighbor1 = originatorsNewTriangle.index
+            elif onEdge == '2':
+                self._neighbor2 = originator.index
+                thisNewTriangle._neighbor2 = originatorsNewTriangle.index
+
+            if originatorsEdge == '2':
+                originator._neighbor2 = self.index
+                originatorsNewTriangle._neighbor2 = thisNewTriangle.index
+            elif originatorsEdge == '1':
+                originator._neighbor1 = self.index
+                originatorsNewTriangle._neighbor1 = thisNewTriangle.index
+            elif originatorsEdge == '0':
+                originator._neighbor0 = self.index
+                originatorsNewTriangle._neighbor0 = thisNewTriangle.index
+        else:  # it must share an edge with the other new triangle (just invert the assignments)
+            if onEdge == '0':
+                self._neighbor0 = originatorsNewTriangle.index
+                thisNewTriangle._neighbor0 = originator.index
+            elif onEdge == '1':
+                self._neighbor1 = originatorsNewTriangle.index
+                thisNewTriangle._neighbor1 = originator.index
+            elif onEdge == '2':
+                self._neighbor2 = originatorsNewTriangle.index
+                thisNewTriangle._neighbor2 = originator.index
+
+            if originatorsEdge == '2':
+                originator._neighbor2 = thisNewTriangle.index
+                originatorsNewTriangle._neighbor2 = self.index
+            elif originatorsEdge == '1':
+                originator._neighbor1 = thisNewTriangle.index
+                originatorsNewTriangle._neighbor1 = self.index
+            elif originatorsEdge == '0':
+                originator._neighbor0 = thisNewTriangle.index
+                originatorsNewTriangle._neighbor0 = self.index
+        if originatorsNewTriangle < thisNewTriangle:
+            return originatorsNewTriangle, thisNewTriangle
+        else:
+            return thisNewTriangle, originatorsNewTriangle
+
+
+
+    def __str__(self):
+        st = super(ConstrainedDelaunayAdjacencyTriangle, self).__str__()
+        return st + ' neighbors: {0}, {1}, {2}'.format(self._neighbor0, self._neighbor1, self._neighbor2)
 
 class ConstrainedDelaunayAdjacencyHoleTriangle(ConstrainedDelaunayAdjacencyTriangle):
     def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
@@ -158,6 +302,17 @@ class ConstrainedDelaunayTriangulator(object):
         """Removes the current polygon definition (and its set of holes), but does not clear the vertex pool."""
         raise NotImplementedError("""ConstrainedDelaunayTriangulator.clearPolygon() is not implemented.""")
 
+    def findContainingTriangle(self, point, triangles, fullList):
+        for triangle in filter(lambda x: x is not None, triangles):
+            print triangle
+            if not hasattr(triangle, 'containsPoint'):
+                triangle = fullList[triangle]
+            if triangle.containsPoint(point):
+                return triangle
+            else:
+                return self.findContainingTriangle(point, triangle.getNeighbors(), fullList)
+        return None
+
     def getGeomNode(self, name='ConstrainedDelaunayTriangles'):
         """returns a GeomNode sufficient put in the scene and draw."""
         # BLOG My TODO legend
@@ -248,6 +403,20 @@ class ConstrainedDelaunayTriangulator(object):
         v1 = self.addVertex(bottomLeft)
         v2 = self.addVertex(farRight)
 
-        triangulated = [
-            ConstrainedDelaunayAdjacencyTriangle(v0, v1, v2, self._vertexData, self._geomTriangles, self._vertexRewriter)
-        ]
+        bounds = ConstrainedDelaunayAdjacencyTriangle(v0, v1, v2, self._vertexData, self._geomTriangles, self._vertexRewriter)
+        triangulated = [bounds]
+        while True:
+            try:
+                pt = self.__polygon.pop()
+            except IndexError:
+                break
+            self._vertexRewriter.setRow(pt)
+            point = self._vertexRewriter.getData3f()
+            found = self.findContainingTriangle(point, (bounds,), triangulated)
+            if found is not None:
+                newTriangles = found.triangulatePoint(pt, triangulated)
+            else:
+                raise ValueError("Point given that's outside of original space.")
+            for triangle in newTriangles:
+                triangulated.append(triangle)
+
