@@ -13,26 +13,11 @@ from utils import getIntersectionBetweenPoints, EPSILON
 
 class PrimitiveInterface(object):
     """Handles interfacing with GeomVertexData objects as well as GeomPrimitives"""
+
     @classmethod
     def readData3f(cls, ind, vreader):
         vreader.setRow(ind)
         return vreader.getData3f()
-
-    @classmethod
-    def getCcwOrder(cls, ind0, ind1, ind2, vreader):
-        pt0 = Point3(*cls.readData3f(ind0, vreader))
-        pt1 = Point3(*cls.readData3f(ind1, vreader))
-        pt2 = Point3(*cls.readData3f(ind2, vreader))
-
-        rightVec = pt1 - pt0
-        leftVec = pt2 - pt0
-        if rightVec.cross(leftVec).z <= 0:
-            tmp = ind1
-            ind1 = ind2
-            ind2 = tmp
-
-        return ind0, ind1, ind2
-
 
     def __init__(self, vdata, primitives):
         # TODO find a way to make only one per vdata
@@ -52,10 +37,10 @@ class PrimitiveInterface(object):
     def getTriangleVertexIndices(self, index):
         st = self.primitives.getPrimitiveStart(index)
         end = self.primitives.getPrimitiveEnd(index)
-        vertexIndicies = []
+        vertexIndices = []
         for i in range(st, end):
-            vertexIndicies.append(self.primitives.getVertex(i))
-        return vertexIndicies
+            vertexIndices.append(self.primitives.getVertex(i))
+        return vertexIndices
 
     def setTrianglePointIndex(self, triangleIndex, pointIndex, newVertexIndex):
         triangleArry = self.primitives.modifyVertices()
@@ -83,11 +68,42 @@ class Triangle(object):
     # TODO may implement descriptor for attribute access:
     # https://docs.python.org/2/reference/datamodel.html#implementing-descriptors
 
+    @classmethod
+    def getCcwOrder(cls, ind0, ind1, ind2, vreader):
+        pt0, pt1, pt2 = cls.makeDummy(ind0, ind1, ind2, vreader)
+        rightVec = pt1 - pt0
+        leftVec = pt2 - pt0
+        if rightVec.cross(leftVec).z <= 0:
+            tmp = ind1
+            ind1 = ind2
+            ind2 = tmp
+
+        return ind0, ind1, ind2
+
+    @classmethod
+    def getDummyMinAngleDeg(cls, ind0, ind1, ind2, vreader):
+        ind0, ind1, ind2 = cls.getCcwOrder(ind0, ind1, ind2, vreader)  # ??? needs to be ccw
+        pt0, pt1, pt2 = cls.makeDummy(ind0, ind1, ind2, vreader)
+        v0 = pt1 - pt0
+        v1 = pt1 - pt2  # reversed
+        v2 = pt2 - pt0  # reversed
+        deg0 = abs(v0.signedAngleDeg(v2, v0.unitZ()))
+        deg1 = abs((-v2).signedAngleDeg(v1, v0.unitZ()))
+        deg2 = 180 - deg0 - deg1
+        return min(deg0, deg1, deg2)
+
+    @classmethod
+    def makeDummy(cls, ind0, ind1, ind2, vreader):
+        pt0 = Point3(*PrimitiveInterface.readData3f(ind0, vreader))
+        pt1 = Point3(*PrimitiveInterface.readData3f(ind1, vreader))
+        pt2 = Point3(*PrimitiveInterface.readData3f(ind2, vreader))
+        return pt0, pt1, pt2
+
     def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
         super(Triangle, self).__init__()
-        inds = PrimitiveInterface.getCcwOrder(vindex0, vindex1, vindex2, rewriter)
+        inds = Triangle.getCcwOrder(vindex0, vindex1, vindex2, rewriter)
         geomTriangles.addVertices(*inds)
-        geomTriangles.closePrimitive()
+
         self._selfIndex = geomTriangles.getNumPrimitives() - 1
         self._primitiveInterface = PrimitiveInterface(vertexData, geomTriangles)
         self._rewriter = rewriter
@@ -163,6 +179,15 @@ class Triangle(object):
         # return SimpleCircle(center, (center - slf.point0).length())
         return SimpleCircle(center, (center - slf.point0).length())
 
+    def getEdgeIndices0(self):
+        return self.pointIndex0, self.pointIndex1
+
+    def getEdgeIndices1(self):
+        return self.pointIndex2, self.pointIndex1
+
+    def getEdgeIndices2(self):
+        return self.pointIndex0, self.pointIndex2
+
     def getIndices(self):
         return self.pointIndex0, self.pointIndex1, self.pointIndex2
 
@@ -206,6 +231,61 @@ class Triangle(object):
             onEdge += '2'
 
         return onEdge
+
+    def getSharedFeatures(self, other):
+        """
+        returns namedtuple version of {
+        'numSharedPoints': int,'point(N)': T/F, 'edge(N)': T/F,
+        'indicesNotShared': (...), 'otherIndicesNotShared': (...)
+        }
+        or {}
+        """
+        inds = other.getIndices()
+        selfInds = self.getIndices()
+
+        shared = ''
+        d = {
+            'numSharedPoints': 0,
+            'point0': False, 'point1': False, 'point2': False,
+            'edge0': False, 'edge1': False, 'edge2': False,
+            'indicesNotShared': self.getIndices(),
+            'otherIndicesNotShared': other.getIndices(),
+        }
+        if selfInds[0] in inds:
+            d['point0'] = True
+            shared += '0'
+            d['numSharedPoints'] += 1
+            d['indicesNotShared'] = filter(lambda i: i != selfInds[0], d['indicesNotShared'])
+            d['otherIndicesNotShared'] = filter(lambda i: i != selfInds[0], d['otherIndicesNotShared'])
+
+        if selfInds[1] in inds:
+            if shared:
+                d['edge0'] = True
+            d['point1'] = True
+            shared += '1'
+            d['numSharedPoints'] += 1
+            d['indicesNotShared'] = filter(lambda i: i != selfInds[1], d['indicesNotShared'])
+            d['otherIndicesNotShared'] = filter(lambda i: i != selfInds[1], d['otherIndicesNotShared'])
+
+        if selfInds[2] in inds:
+            if shared == '0':
+                d['edge2'] = True
+            elif shared == '1':
+                d['edge1'] = True
+            elif shared == '01':
+                d['edge0'] = True
+                d['edge1'] = True
+                d['edge2'] = True
+            d['point2'] = True
+            d['numSharedPoints'] += 1
+            d['indicesNotShared'] = filter(lambda i: i != selfInds[2], d['indicesNotShared'])
+            d['otherIndicesNotShared'] = filter(lambda i: i != selfInds[2], d['otherIndicesNotShared'])
+        t = namedtuple('SharedNamedTuple', d.keys())
+        nt = t(*d.values())
+        if shared:
+            return nt
+        else:
+            return ()
 
     def getVec0(self):
         slf = self.asPointsEnum()
@@ -273,33 +353,6 @@ class Triangle(object):
     def setIndex(self, value):
         self._selfIndex = value
 
-    def sharedFeatures(self, other):
-        inds = other.getIndices()
-        shared = ''
-        d = {'point0': False, 'point1': False, 'point2': False, 'edge0': False, 'edge1': False, 'edge2': False}
-        if self.pointIndex0 in inds:
-            d['point0'] = True
-            shared += '0'
-        if self.pointIndex1 in inds:
-            if shared:
-                d['edge0'] = True
-            d['point1'] = True
-            shared += '1'
-        if self.pointIndex2 in inds:
-            if shared == '0':
-                d['edge2'] = True
-            elif shared == '1':
-                d['edge1'] = True
-            elif shared == '01':
-                d['edge0'] = True
-                d['edge1'] = True
-                d['edge2'] = True
-            d['point2'] = True
-        if shared:
-            return d
-        else:
-            return {}
-
     def __gt__(self, other):
         if isinstance(other, Triangle):
             return self._selfIndex > other.index
@@ -337,7 +390,8 @@ class Triangle(object):
             return self._selfIndex < other
 
     def __str__(self):
-        return str(self.__class__) + " {0}:\n\tpoint0 {1}  point1 {2} point2 {3}".format(self._selfIndex,
-                                                                                         self.point0,
-                                                                                         self.point1,
-                                                                                         self.point2)
+        return str(self.__class__) + " {0}:\n\tpoint0 {1}  point1 {2} point2 {3} indices: {4} {5} {6}".format(
+            self._selfIndex,
+            self.point0, self.point1, self.point2,
+            self.pointIndex0, self.pointIndex1, self.pointIndex2
+        )

@@ -21,9 +21,14 @@ class Developer(ShowBase):
         self.win.requestProperties(winProps)
 
         # BLOG post about these bullet points then delete them
-        # 1) create GeomVertexData
+        # 1) create GeomVertexData (inside the triangulator's constructor)
         frmt = GeomVertexFormat.getV3n3cp()
-        vdata = GeomVertexData('triangle_developer', frmt, Geom.UHDynamic)
+
+        def addToVertex(x, y, z):
+            normal.addData3f(zUp)
+            color.addData4f(wt)
+        triangulator = ConstrainedDelaunayTriangulator(vertexFormat = frmt, onVertexCreationCallback = addToVertex)
+        vdata = triangulator.getGeomVertexData()
 
         # 2) create Writers/Rewriters (must all be created before any readers and readers are one-pass-temporary)
         normal = GeomVertexRewriter(vdata, 'normal')  # DOC 'vertex' is the only prohibited column for the user to use
@@ -33,13 +38,8 @@ class Developer(ShowBase):
         wt = Vec4(1.0, 1.0, 1.0, 1.0)
 
         # 3) write each column on the vertex data object (for speed, have a different writer for each column)
-        def addToVertex(x, y, z):
-            normal.addData3f(zUp)
-            color.addData4f(wt)
 
         # DOC 1.DT) create triangulator
-        triangulator = ConstrainedDelaunayTriangulator(geomVertexDataObj=vdata, format=frmt,
-                                                       onVertexCreationCallback=addToVertex)
         # DOC 2.DT) add vertices (before calling triangulate)
         triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
@@ -49,9 +49,14 @@ class Developer(ShowBase):
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
         # DOC 4.DT) call triangulate
-        triangulator.triangulate()
+        triangulator.triangulate(makeDelaunay=True)
+        assert triangulator.isTriangulated()
+        triangleList = triangulator.getTriangleList()
+        # print "Triangulated:"
+        # for tri in triangleList:
+        #     print "\t{0}".format(tri)
 
-        # 4) create a primitive and add the vertices via index (not truely associated with the actual vertex table, yet)
+        # 4) create a primitive and add the vertices via index (not truly associated with the actual vertex table, yet)
         # tris = GeomTriangles(Geom.UHDynamic)
         # t1 = Triangle(0, 1, 2, vdata, tris, vertex)
         # t2 = Triangle(2, 1, 3, vdata, tris, vertex)
