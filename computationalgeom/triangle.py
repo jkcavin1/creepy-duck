@@ -188,6 +188,10 @@ class Triangle(object):
     def getEdgeIndices2(self):
         return self.pointIndex0, self.pointIndex2
 
+    def getGeomVertex(self, i):
+        self._rewriter.setRow(i)
+        return self._rewriter.getData3f()
+
     def getIndices(self):
         return self.pointIndex0, self.pointIndex1, self.pointIndex2
 
@@ -213,6 +217,9 @@ class Triangle(object):
         if ang1 < minAng:
             minAng = ang1
         return min(self.getAngleDeg2(), minAng)
+
+    def getNumGeomVertices(self):
+        return self._primitiveInterface.vdata.getNumRows()
 
     def getOccupiedEdge(self, point, slf=None):
         if not isinstance(slf, Triangle.TriangleTuple):
@@ -390,7 +397,7 @@ class Triangle(object):
             return self._selfIndex < other
 
     def __str__(self):
-        return str(self.__class__) + " {0}:\n\tpoint0 {1}  point1 {2} point2 {3} indices: {4} {5} {6}".format(
+        return str(self.__class__) + " {0}: {1}, {2}, {3}\n\tindices: {4} {5} {6}".format(
             self._selfIndex,
             self.point0, self.point1, self.point2,
             self.pointIndex0, self.pointIndex1, self.pointIndex2
