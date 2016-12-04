@@ -85,11 +85,15 @@ class Triangle(object):
         ind0, ind1, ind2 = cls.getCcwOrder(ind0, ind1, ind2, vreader)  # ??? needs to be ccw
         pt0, pt1, pt2 = cls.makeDummy(ind0, ind1, ind2, vreader)
         v0 = pt1 - pt0
-        v1 = pt1 - pt2  # reversed
-        v2 = pt2 - pt0  # reversed
-        deg0 = abs(v0.signedAngleDeg(v2, v0.unitZ()))
-        deg1 = abs((-v2).signedAngleDeg(v1, v0.unitZ()))
-        deg2 = 180 - deg0 - deg1
+        v1 = pt1 - pt2  # reverse of triangle eg cw winding
+        v2 = pt2 - pt0  # reverse of triangle
+        v0.normalize()
+        v1.normalize()
+        v2.normalize()
+        deg0 = v0.angleDeg(v2)
+        deg1 = (-v2).angleDeg(v1)
+        deg2 = (-v1).angleDeg(-v0)
+        assert abs(deg0 + deg1 + deg2 - 180) < EPSILON
         return min(deg0, deg1, deg2)
 
     @classmethod
@@ -101,13 +105,21 @@ class Triangle(object):
 
     def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
         super(Triangle, self).__init__()
+        if Triangle.getDummyMinAngleDeg(vindex0, vindex1, vindex2, rewriter) <= 0:
+            rewriter.setRow(vindex0)
+            pt0 = rewriter.getData3f()
+            rewriter.setRow(vindex1)
+            pt1 = rewriter.getData3f()
+            rewriter.setRow(vindex2)
+            pt2 = rewriter.getData3f()
+            raise ValueError("Colinear degenerate triangle points: {0} {1} {2}".format(pt0, pt1, pt2))
+
         inds = Triangle.getCcwOrder(vindex0, vindex1, vindex2, rewriter)
         geomTriangles.addVertices(*inds)
 
         self._selfIndex = geomTriangles.getNumPrimitives() - 1
         self._primitiveInterface = PrimitiveInterface(vertexData, geomTriangles)
         self._rewriter = rewriter
-
 
     def asPointsEnum(self):
         return self._primitiveInterface.getTriangleAsPoints(self._selfIndex, vreader=self._rewriter)
@@ -131,6 +143,21 @@ class Triangle(object):
             return v1.cross(pv1).z <= 0 and v2.cross(pv2).z <= 0 and v3.cross(pv3).z <= 0
         else:
             return v1.cross(pv1).z < 0 and v2.cross(pv2).z < 0 and v3.cross(pv3).z < 0
+
+    @property
+    def edge0(self):
+        slf = self.asPointsEnum()
+        return slf.point0, slf.point1
+
+    @property
+    def edge1(self):
+        slf = self.asPointsEnum()
+        return slf.point1, slf.point2
+
+    @property
+    def edge2(self):
+        slf = self.asPointsEnum()
+        return slf.point2, slf.point0
 
     def getAngleDeg0(self):
         slf = self.asPointsEnum()
@@ -257,6 +284,7 @@ class Triangle(object):
             'edge0': False, 'edge1': False, 'edge2': False,
             'indicesNotShared': self.getIndices(),
             'otherIndicesNotShared': other.getIndices(),
+            'other': other,
         }
         if selfInds[0] in inds:
             d['point0'] = True
@@ -397,7 +425,7 @@ class Triangle(object):
             return self._selfIndex < other
 
     def __str__(self):
-        return str(self.__class__) + " {0}: {1}, {2}, {3}\n\tindices: {4} {5} {6}".format(
+        return str(self.__class__).split('.')[-1][:-2] + " {0}:\n\t{1}, {2}, {3}\n\tind: {4} {5} {6}".format(
             self._selfIndex,
             self.point0, self.point1, self.point2,
             self.pointIndex0, self.pointIndex1, self.pointIndex2
