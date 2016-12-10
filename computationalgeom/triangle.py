@@ -159,6 +159,18 @@ class Triangle(object):
         slf = self.asPointsEnum()
         return slf.point2, slf.point0
 
+    @property
+    def edgeIndices0(self):
+        return self.pointIndex0, self.pointIndex1
+
+    @property
+    def edgeIndices1(self):
+        return self.pointIndex1, self.pointIndex2
+
+    @property
+    def edgeIndices2(self):
+        return self.pointIndex2, self.pointIndex0
+
     def getAngleDeg0(self):
         slf = self.asPointsEnum()
         edge1 = slf.point1 - slf.point0
@@ -317,10 +329,11 @@ class Triangle(object):
             d['otherIndicesNotShared'] = filter(lambda i: i != selfInds[2], d['otherIndicesNotShared'])
         t = namedtuple('SharedNamedTuple', d.keys())
         nt = t(*d.values())
-        if shared:
-            return nt
-        else:
-            return ()
+        return nt
+        # if shared:
+        #     return nt
+        # else:
+        #     return
 
     def getVec0(self):
         slf = self.asPointsEnum()

@@ -49,10 +49,6 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         Returns the other triangle if a swap occurred, None if not.
         """
         # BLOG optimal throw (most of the time there will be a neighbor, hence try rather than if)
-        # global notify
-        # notify.warning("legalizeEdge0 self {0}:{1} n:{2}".format(self.index,
-        #                                                          self.getIndices(),
-        #                                                          self.getNeighbors()))
         try:
             other = _triangleList[self._neighbor0]
         except TypeError:
@@ -71,15 +67,7 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             notify.warning("legalizeEdge0 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
-            toOther = self._neighbor1
-            # self._neighbor0 =
-            neighb = self.swap(other, toOther, sharedFeatures, self.swap0)
-            # if toOther is not None:
-            #     _triangleList[toOther].setNewNeighbor(other)
-            # if neighb is not None:
-            #     _triangleList[neighb].setNewNeighbor(self)
-            self.legalizeEdge1(_triangleList)
-            self.legalizeEdge2(_triangleList)
+            self.swap(other, _triangleList)
             global notify
             notify.warning("legalizeEdge0 self {0}:{1} n:{2}".format(self.index,
                                                                      self.getIndices(),
@@ -87,6 +75,8 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             notify.warning("legalizeEdge0 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
+            # self.legalizeEdge1(_triangleList)
+            # self.legalizeEdge2(_triangleList)
             return True
         else:
             return False
@@ -114,21 +104,15 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             notify.warning("legalizeEdge1 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
-            toOther = self._neighbor2
-            # self._neighbor1 =
-            neighb = self.swap(other, toOther, sharedFeatures, self.swap1)
-            # if toOther is not None:
-            #     _triangleList[toOther].setNewNeighbor(other)
-            # if neighb is not None:
-            #     _triangleList[neighb].setNewNeighbor(self)
+            self.swap(other, _triangleList)
             notify.warning("legalizeEdge1 self {0}:{1} n:{2}".format(self.index,
                                                                      self.getIndices(),
                                                                      self.getNeighbors()))
             notify.warning("legalizeEdge1 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
-            self.legalizeEdge0(_triangleList)
-            self.legalizeEdge2(_triangleList)
+            # self.legalizeEdge0(_triangleList)
+            # self.legalizeEdge2(_triangleList)
             return True
         else:
             return False
@@ -155,76 +139,115 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             notify.warning("legalizeEdge2 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
-            toOther = self._neighbor0
-            # self._neighbor2 =
-            neighb = self.swap(other, toOther, sharedFeatures, self.swap2)
-            # if toOther is not None:
-            #     _triangleList[toOther].setNewNeighbor(other)
-            # if neighb is not None:
-            #     _triangleList[neighb].setNewNeighbor(self)
+            self.swap(other, _triangleList)
             notify.warning("legalizeEdge2 self {0}:{1} n:{2}".format(self.index,
                                                                      self.getIndices(),
                                                                      self.getNeighbors()))
             notify.warning("legalizeEdge2 other {0}:{1} n:{2}".format(other.index,
                                                                       other.getIndices(),
                                                                       other.getNeighbors()))
-            self.legalizeEdge0(_triangleList)
-            self.legalizeEdge2(_triangleList)
+            # self.legalizeEdge0(_triangleList)
+            # self.legalizeEdge2(_triangleList)
             return True
         else:
             return False
 
-    def swap(self, other, toOther, sharedFeatures, swapFunc):
-        # set the points
+    def swap(self, other, _triangleList):
+        # we only want to deal with references to these two triangles
+        theseTwo = (self.index, other.index)
+
+        neighborLst = []
+        neighborLst.extend(filter(lambda x: x is not None and x not in theseTwo, self.getNeighbors()))
+        neighborLst.extend(filter(lambda x: x is not None and x not in theseTwo, other.getNeighbors()))
+        sharedFeatures = self.getSharedFeatures(other)
         otherShared = other.getSharedFeatures(self)
-        # fix other
-        if otherShared.edge0:
-            on0 = swapFunc(sharedFeatures.otherIndicesNotShared[0], other.index, other._neighbor1)
-            notify.warning("swap self {0}:{1} n:{2}".format(self.index,
-                                                            self.getIndices(),
-                                                            self.getNeighbors()))
-            out = other.swap0(sharedFeatures.indicesNotShared[0], self.index, toOther)
-            # other._neighbor0 = on0
-            return out
-        elif otherShared.edge1:
-            on2 = swapFunc(sharedFeatures.otherIndicesNotShared[0], other.index, other._neighbor2)
-            notify.warning("swap self {0}:{1} n:{2}".format(self.index,
-                                                            self.getIndices(),
-                                                            self.getNeighbors()))
-            out = other.swap1(sharedFeatures.indicesNotShared[0], self.index, toOther)
-            # other._neighbor2 = on2
-            return out
-        elif otherShared.edge2:
-            on2 = swapFunc(sharedFeatures.otherIndicesNotShared[0], other.index, other._neighbor0)
-            notify.warning("swap self {0}:{1} n:{2}".format(self.index,
-                                                            self.getIndices(),
-                                                            self.getNeighbors()))
-            out = other.swap2(sharedFeatures.indicesNotShared[0], self.index, toOther)
-            # other._neighbor2 = on2
-            return out
+        # swap self. Set other to its new edge. Record the edges that we'll need to legalize afterwards.
+        if sharedFeatures.edge0:
+            self.swap0(sharedFeatures.otherIndicesNotShared[0], other.index)
+            needsLegalized = '02'  # the new edge0 needs legalized
+        elif sharedFeatures.edge1:
+            self.swap1(sharedFeatures.otherIndicesNotShared[0], other.index)
+            needsLegalized = '01'
+        elif sharedFeatures.edge2:
+            self.swap2(sharedFeatures.otherIndicesNotShared[0], other.index)
+            needsLegalized = '12'
         else:
             raise ValueError("No shared edge between {0} and {1}".format(self.index, other.index))
+        # do the same wrt the other triangle
+        if otherShared.edge0:
+            other.swap0(sharedFeatures.indicesNotShared[0], self.index)
+            otherNeedsLegalized = '02'
+        elif otherShared.edge1:
+            other.swap1(sharedFeatures.indicesNotShared[0], self.index)
+            otherNeedsLegalized = '01'
+        elif otherShared.edge2:
+            other.swap2(sharedFeatures.indicesNotShared[0], self.index)
+            otherNeedsLegalized = '12'
+        else:
+            raise ValueError("No shared edge between {0} and {1}".format(self.index, other.index))
+        notify.warning("neighborLst {0}".format(neighborLst))
+        # To prevent double references, set all references to these two to None. We'll reset them below.
+        for n in neighborLst:
+            tri = _triangleList[n]
+            if tri._neighbor0 in theseTwo:
+                tri._neighbor0 = None
+            if tri._neighbor1 in theseTwo:
+                tri._neighbor1 = None
+            if tri._neighbor2 in theseTwo:
+                tri._neighbor2 = None
+        # go through each triangle not in the pair getting swapped.
+        # Set their references these two according by reacquiring shared edges
+        for n in neighborLst:
+            tri = _triangleList[n]
+            for theseN in theseTwo:
+                ths = _triangleList[theseN]
+                thsShared = ths.getSharedFeatures(tri)
+                othShared = tri.getSharedFeatures(ths)
+                if thsShared.edge0:
+                    ths._neighbor0 = tri.index
+                elif thsShared.edge1:
+                    ths._neighbor1 = tri.index
+                elif thsShared.edge2:
+                    ths._neighbor2 = tri.index
 
-    def swap0(self, pointInd, originInd, newNeighbor):
+                if othShared.edge0:
+                    tri._neighbor0 = ths.index
+                elif othShared.edge1:
+                    tri._neighbor1 = ths.index
+                elif othShared.edge2:
+                    tri._neighbor2 = ths.index
+        # legalize the rest of these two triangle edges, since the triangles have changed
+        if needsLegalized == '02':
+            self.legalizeEdge0(_triangleList)
+            self.legalizeEdge2(_triangleList)
+        elif needsLegalized == '01':
+            self.legalizeEdge0(_triangleList)
+            self.legalizeEdge1(_triangleList)
+        elif needsLegalized == '12':
+            self.legalizeEdge1(_triangleList)
+            self.legalizeEdge2(_triangleList)
+
+
+    def swap0(self, pointInd, otherInd):
         self.pointIndex1 = pointInd
-        toOrigin = self._neighbor0
-        self._neighbor0 = newNeighbor
-        self._neighbor1 = originInd
-        return toOrigin
+        ret = self._neighbor1
+        self._neighbor1 = otherInd  # up to caller to fix overwritten neighbor
+        self._neighbor0 = None  # up to caller to fix the original edge the other triangle was on
+        return ret
 
-    def swap1(self, pointInd, originInd, newNeighbor):
+    def swap1(self, pointInd, otherInd):
         self.pointIndex2 = pointInd
-        toOrigin = self._neighbor2
-        self._neighbor2 = originInd
-        self._neighbor1 = newNeighbor
-        return toOrigin
+        ret = self._neighbor2
+        self._neighbor2 = otherInd
+        self._neighbor1 = None
+        return ret
 
-    def swap2(self, pointInd, originInd, newNeighbor):
+    def swap2(self, pointInd, otherInd):
         self.pointIndex0 = pointInd
-        toOrigin = self._neighbor0
-        self._neighbor0 = originInd
-        self._neighbor2 = newNeighbor
-        return toOrigin
+        ret = self._neighbor0
+        self._neighbor0 = otherInd
+        self._neighbor2 = None
+        return ret
 
     def _getDummiesAndAngles(self, sharedFeatures):
         if sharedFeatures.numSharedPoints != 2:
@@ -257,11 +280,11 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         point = self._rewriter.getData3f()
         # we can't swap the edges unless the new edge cuts across the shared edge
         if sharedFeatures.edge0 and not self.isPointVisibleOverEdge0(point):
-            return True
+            return True  # True here means the alternative is illegal
         elif sharedFeatures.edge1 and not self.isPointVisibleOverEdge1(point):
-            return True
+            return True  # True here means the alternative is illegal
         elif sharedFeatures.edge2 and not self.isPointVisibleOverEdge2(point):
-            return True
+            return True  # True here means the alternative is illegal
 
         currentMinAng = min(self.getMinAngleDeg(), other.getMinAngleDeg())
         ghostInds1, ghostInds2, ghostTriMin1, ghostTriMin2 = self._getDummiesAndAngles(sharedFeatures)
@@ -327,18 +350,26 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
     def setNewNeighbor(self, newNeighbor):
         shared = self.getSharedFeatures(newNeighbor)
         numSet = 0
-        if shared and shared.edge0:
-            # assert self._neighbor0 is not None
+        global notify
+        notify.warning("setNewNeighbor before {0}: {1}".format(self.index, self.getNeighbors()))
+        notify.warning("setNewNeighbor oth {0}: {1}".format(newNeighbor.index, newNeighbor.getNeighbors()))
+        self._rewriter.setRow(shared.otherIndicesNotShared[0])
+        opposingPoint = self._rewriter.getData3f()
+
+        if shared and shared.edge0 and self.isPointVisibleOverEdge0(opposingPoint):
             self._neighbor0 = newNeighbor.index
+            assert self._neighbor0 or 1 == self.getNeighbors(includeEmpties=False).count(self._neighbor0)
             numSet += 1
-        if shared and shared.edge1:
-            # assert self._neighbor1 is not None
+        if shared and shared.edge1 and self.isPointVisibleOverEdge1(opposingPoint):
             self._neighbor1 = newNeighbor.index
+            assert self._neighbor1 or 1 == self.getNeighbors(includeEmpties=False).count(self._neighbor1)
             numSet += 1
-        if shared and shared.edge2:
-            # assert self._neighbor2 is not None
+        if shared and shared.edge2 and self.isPointVisibleOverEdge2(opposingPoint):
             self._neighbor2 = newNeighbor.index
+            assert self._neighbor2 or 1 == self.getNeighbors(includeEmpties=False).count(self._neighbor2)
             numSet += 1
+        notify.warning("setNewNeighbor after: numSet: {0} neighbors: {1}".format(numSet, self.getNeighbors()))
+        notify.warning("setNewNeighbor oth {0}: {1}".format(newNeighbor.index, newNeighbor.getNeighbors()))
         return numSet
 
     def reverse(self):
@@ -395,7 +426,7 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         #                                                                             self.getIndices(),
         #                                                                             self.getNeighbors()))
         if self.containsPoint(point, includeEdges=False):
-            notify.warning("point in Interior")
+            notify.warning("point in     Interior")
             newTriangles.extend(self._triangulateSelf(pointIndex, _triangleList))
         else:
             notify.warning("point on edge")
@@ -675,6 +706,10 @@ class ConstrainedDelaunayTriangulator(object):
         """Removes the current polygon definition (and its set of holes), but does not clear the vertex pool."""
         raise NotImplementedError("""ConstrainedDelaunayTriangulator.clearPolygon() is not implemented.""")
 
+    def getAdjacencyList(self):
+        """Returns a list of triangles, each referencing its own neighbors by their list index."""
+        return self.__polygon
+
     def getGeomNode(self, name='ConstrainedDelaunayTriangles'):
         """returns a GeomNode, with the provided name, sufficient to put in the scene and draw."""
         # BLOG My TODO legend
@@ -731,9 +766,9 @@ class ConstrainedDelaunayTriangulator(object):
     def getGeomVertexData(self):
         return self._vertexData
 
-    def getTriangleList(self):
+    def getTriangles(self):
         assert self.isTriangulated()
-        return self.__polygon
+        return self._geomTriangles
     
     def getVertices(self):
         """Returns a list of vertices."""
@@ -776,9 +811,6 @@ class ConstrainedDelaunayTriangulator(object):
         v2 = self.addVertex(farRight)
 
         bounds = ConstrainedDelaunayAdjacencyTriangle(v0, v1, v2, self._vertexData, self._geomTriangles, self._vertexRewriter)
-        # for i in range(0, self._vertexData.getNumRows()):
-        #     self._vertexRewriter.setRow(i)
-        #     notify.warning("point {0}: {1}".format(i, self._vertexRewriter.getData3f()))
         notify.warning("bounds:\n{0}".format(bounds))
 
         triangulated = [bounds]
@@ -793,7 +825,6 @@ class ConstrainedDelaunayTriangulator(object):
             found = ConstrainedDelaunayTriangulator.findContainingTriangle(point, bounds, triangulated)
             if found is not None:
                 # triangulate the point into the triangle, collecting any new triangles
-                oldEnd = len(triangulated) - 1
                 newTriangles = found.triangulatePoint(pt, triangulated)
                 # BLOG heapq.merge() is useless as it returns an iterable which can't be index, but heaps require lists
                 # BLOG Hence, it's probably faster to heap.push than to iterate (in C) a merg then iterate to recreate a list
@@ -811,7 +842,7 @@ class ConstrainedDelaunayTriangulator(object):
                         # notify.warning("aftter:\n{0}".format(tri))
                 notify.warning("\nafter makeDelaunay")
                 for tri in triangulated:
-                    notify.warning("i: {0} indices: {1} neighbors: {2}".format(i.index, i.getIndices(), i.getNeighbors()))
+                    notify.warning("i: {0} indices: {1} neighbors: {2}".format(tri.index, tri.getIndices(), tri.getNeighbors()))
             else:
                 raise ValueError("Point given that's outside of original space.")
         self.__polygon = triangulated

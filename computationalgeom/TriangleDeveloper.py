@@ -7,9 +7,14 @@ from pandac.PandaModules import WindowProperties
 from panda3d.core import RenderModeAttrib, LineSegs
 from panda3d.core import Vec3, Vec4, Point3
 from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomVertexFormat, GeomVertexRewriter
+from direct.directnotify.DirectNotify import DirectNotify
+
 from utilities import pandaHelperFuncs as PHF
-import utils as utilities
 from constrainedDelaunayTriangulator import ConstrainedDelaunayTriangulator  # Unit test Triangle
+
+
+notify = DirectNotify().newCategory("DelaunayTriangulatorUnitTest")
+# selfEdgeCallCount = otherEdgeCallCount = 0
 
 
 class Developer(ShowBase):
@@ -46,13 +51,35 @@ class Developer(ShowBase):
         triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
         # DOC 4.DT) call triangulate
         triangulator.triangulate(makeDelaunay=True)
         assert triangulator.isTriangulated()
-        triangleList = triangulator.getTriangleList()
+        adjLst = triangulator.getAdjacencyList()
+        foundError = False  # so I can explicitly state all index references are correct
+        for t in adjLst:
+            for n in t.getNeighbors(includeEmpties=False):
+                neighbor = adjLst[n]
+                if neighbor == t._neighbor0:
+                    edge = t.edgeIndices0
+                elif neighbor == t._neighbor1:
+                    edge = t.edgeIndices1
+                elif neighbor == t._neighbor2:
+                    edge = t.edgeIndices2
+                otherInds = neighbor.getIndices()
+                if edge[0] not in otherInds and edge[1] not in otherInds:
+                    foundError = True
+                    notify.warning("Bad reference to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
+                                   "\nreferred: {3} indices: {4} neighbors: {5}".format(
+                                       t.index, t.getIndices(), t.getNeighbors(),
+                                       neighbor.index, neighbor.getIndices(), neighbor.getNeighbors()
+                                   ))
+        if not foundError:
+            notify.warning("No error found in neighbors that were referenced.")
+        # triangles = triangulator.getTriangles()
         # print "Triangulated:"
         # for tri in triangleList:
         #     print "\t{0}".format(tri)
