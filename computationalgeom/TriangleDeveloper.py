@@ -25,22 +25,22 @@ class Developer(ShowBase):
         # base.win.requestProperties(winProps) (same as below e.g. self == base)
         self.win.requestProperties(winProps)
 
-        # BLOG post about these bullet points then delete them
-        # 1) create GeomVertexData (inside the triangulator's constructor)
-        frmt = GeomVertexFormat.getV3n3cp()
+
+        zUp = Vec3(0.0, 0.0, 1.0)
+        wt = Vec4(1.0, 1.0, 1.0, 1.0)
 
         def addToVertex(x, y, z):
             normal.addData3f(zUp)
             color.addData4f(wt)
+        # BLOG post about these bullet points then delete them
+        # 1) create GeomVertexData (inside the triangulator's constructor)
+        frmt = GeomVertexFormat.getV3n3cp()
         triangulator = ConstrainedDelaunayTriangulator(vertexFormat = frmt, onVertexCreationCallback = addToVertex)
         vdata = triangulator.getGeomVertexData()
 
         # 2) create Writers/Rewriters (must all be created before any readers and readers are one-pass-temporary)
         normal = GeomVertexRewriter(vdata, 'normal')  # DOC 'vertex' is the only prohibited column for the user to use
         color = GeomVertexRewriter(vdata, 'color')
-
-        zUp = Vec3(0.0, 0.0, 1.0)
-        wt = Vec4(1.0, 1.0, 1.0, 1.0)
 
         # 3) write each column on the vertex data object (for speed, have a different writer for each column)
 
@@ -63,22 +63,25 @@ class Developer(ShowBase):
         for t in adjLst:
             for n in t.getNeighbors(includeEmpties=False):
                 neighbor = adjLst[n]
-                if neighbor == t._neighbor0:
-                    edge = t.edgeIndices0
-                elif neighbor == t._neighbor1:
-                    edge = t.edgeIndices1
-                elif neighbor == t._neighbor2:
-                    edge = t.edgeIndices2
                 otherInds = neighbor.getIndices()
-                if edge[0] not in otherInds and edge[1] not in otherInds:
+                if neighbor.index == t._neighbor0:
+                    edge = t.edgeIndices0
+                elif neighbor.index == t._neighbor1:
+                    edge = t.edgeIndices1
+                elif neighbor.index == t._neighbor2:
+                    edge = t.edgeIndices2
+                if not (edge[0] in otherInds and edge[1] in otherInds):
                     foundError = True
-                    notify.warning("Bad reference to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
+                    notify.warning("BAD REFERENCE to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
                                    "\nreferred: {3} indices: {4} neighbors: {5}".format(
                                        t.index, t.getIndices(), t.getNeighbors(),
                                        neighbor.index, neighbor.getIndices(), neighbor.getNeighbors()
                                    ))
         if not foundError:
             notify.warning("No error found in neighbors that were referenced.")
+        else:
+            notify.warning("ERROR found in neighbors that were referenced.")
+        # TODO test edges that reference no neighbor
         # triangles = triangulator.getTriangles()
         # print "Triangulated:"
         # for tri in triangleList:
