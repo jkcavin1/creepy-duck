@@ -299,7 +299,7 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         return isPointInWedge(point, self.edge0, self.edge2[::-1])
 
     def isPointVisibleOverEdge2(self, point):
-        return isPointInWedge(point, self.edge0[::-1], self.edge2)
+        return isPointInWedge(point, self.edge0[::-1], self.edge1)
 
     def getEdgeWithPoints(self, ind1, ind2):
         edge0 = self.getEdgeIndices0()
