@@ -63,7 +63,7 @@ class Developer(ShowBase):
         for t in adjLst:
             for n in t.getNeighbors(includeEmpties=False):
                 neighbor = adjLst[n]
-                otherInds = neighbor.getIndices()
+                otherInds = neighbor.getPointIndices()
                 if neighbor.index == t._neighbor0:
                     edge = t.edgeIndices0
                 elif neighbor.index == t._neighbor1:
@@ -74,8 +74,8 @@ class Developer(ShowBase):
                     foundError = True
                     notify.warning("BAD REFERENCE to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
                                    "\nreferred: {3} indices: {4} neighbors: {5}".format(
-                                       t.index, t.getIndices(), t.getNeighbors(),
-                                       neighbor.index, neighbor.getIndices(), neighbor.getNeighbors()
+                                       t.index, t.getPointIndices(), t.getNeighbors(),
+                                       neighbor.index, neighbor.getPointIndices(), neighbor.getNeighbors()
                                    ))
         if not foundError:
             notify.warning("No error found in neighbors that were referenced.")
@@ -170,7 +170,7 @@ class Developer(ShowBase):
         PHF.PanditorEnableMouseFunc()
 
         # print "isLeftWinding()", triangulator.isLeftWinding()
-        # TODO port the triangle-indices node func drawInds(...)
+        # TODO port the triangle-indices node func drawTriangleIndices(...)
         render.ls()
 
 

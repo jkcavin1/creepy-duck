@@ -231,7 +231,7 @@ class Triangle(object):
         self._rewriter.setRow(i)
         return self._rewriter.getData3f()
 
-    def getIndices(self):
+    def getPointIndices(self):
         return self.pointIndex0, self.pointIndex1, self.pointIndex2
 
     def getIntersectionsWithCircumcircle(self, point1, point2, tolerance=EPSILON):
@@ -286,16 +286,16 @@ class Triangle(object):
         }
         or {}
         """
-        inds = other.getIndices()
-        selfInds = self.getIndices()
+        inds = other.getPointIndices()
+        selfInds = self.getPointIndices()
 
         shared = ''
         d = {
             'numSharedPoints': 0,
             'point0': False, 'point1': False, 'point2': False,
             'edge0': False, 'edge1': False, 'edge2': False,
-            'indicesNotShared': self.getIndices(),
-            'otherIndicesNotShared': other.getIndices(),
+            'indicesNotShared': self.getPointIndices(),
+            'otherIndicesNotShared': other.getPointIndices(),
             'other': other,
         }
         if selfInds[0] in inds:
