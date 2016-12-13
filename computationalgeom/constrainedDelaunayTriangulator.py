@@ -8,9 +8,20 @@ from panda3d.core import GeomVertexData, GeomVertexFormat, GeomTriangles, GeomVe
 from panda3d.core import Point3
 from computationalgeom.constrainedDelaunayTriangle import ConstrainedDelaunayAdjacencyTriangle, ConstrainedDelaunayAdjacencyHoleTriangle
 from utils import getIntersectionBetweenPoints, getCenterOfPoints3D
+from utilities.maxHeap import MaxHeap
 
 
 notify = DirectNotify().newCategory("DelaunayTriangulator")
+
+class _DummyPoint:
+    def __init__(self, ind, vertRewriter):
+        self.ind = ind
+        vertRewriter.setRow(ind)
+        self.pt = vertRewriter.getData3f()
+        self.rewritter = vertRewriter
+
+    def __lt__(self, other):
+        pass
 
 
 class ConstrainedDelaunayTriangulator(object):
@@ -53,11 +64,13 @@ class ConstrainedDelaunayTriangulator(object):
         self._universalZ = universalZ
         self.__holes = [[]]
         self.__polygon = []
+        inf = float('inf')
+        negInf = float('-inf')
         self.bounds = {
-            'minX': 50000.0,
-            'maxX': -50000.0,
-            'minY': 50000.0,
-            'maxY': -50000.0,
+            'minX': inf,
+            'maxX': negInf,
+            'minY': inf,
+            'maxY': negInf,
         }
         self.lastStaticVertexIndex = -1
 
@@ -226,9 +239,7 @@ class ConstrainedDelaunayTriangulator(object):
         v0 = self.addVertex(topLeft)
         v1 = self.addVertex(bottomLeft)
         v2 = self.addVertex(farRight)
-
         bounds = ConstrainedDelaunayAdjacencyTriangle(v0, v1, v2, self._vertexData, self._geomTriangles, self._vertexRewriter)
-        notify.warning("bounds:\n{0}".format(bounds))
 
         triangulated = [bounds]
         while True:
@@ -247,18 +258,11 @@ class ConstrainedDelaunayTriangulator(object):
                 # BLOG Hence, it's probably faster to heap.push than to iterate (in C) a merge then iterate to recreate a list
                 # BLOG if I use a heap
                 triangulated.extend(newTriangles)
-                notify.warning("\nafter triangulated.extend")
-                for i in triangulated:
-                    notify.warning("i: {0} indices: {1} neighbors: {2}".format(i.index, i.getPointIndices(), i.getNeighbors()))
                 if makeDelaunay:
                     for tri in newTriangles:
-                        # notify.warning("before:\n{0}".format(tri))
                         tri.legalize(triangulated)
-                        # notify.warning("after:\n{0}".format(tri))
-                notify.warning("\nafter makeDelaunay")
-                for tri in triangulated:
-                    notify.warning("i: {0} indices: {1} neighbors: {2}".format(tri.index, tri.getPointIndices(), tri.getNeighbors()))
             else:
                 raise ValueError("Point given that's outside of original space.")
+
         self.__polygon = triangulated
 
