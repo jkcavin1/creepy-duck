@@ -46,12 +46,12 @@ class Developer(ShowBase):
 
         # DOC 1.DT) create triangulator
         # DOC 2.DT) add vertices (before calling triangulate)
-        triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
-        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
+        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
+        triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
@@ -82,7 +82,7 @@ class Developer(ShowBase):
         else:
             notify.warning("ERROR found in neighbors that were referenced.")
         # TODO test edges that reference no neighbor
-        # triangles = triangulator.getTriangles()
+        # triangles = triangulator.getGeomTriangles()
         # print "Triangulated:"
         # for tri in triangleList:
         #     print "\t{0}".format(tri)
@@ -171,6 +171,8 @@ class Developer(ShowBase):
 
         # print "isLeftWinding()", triangulator.isLeftWinding()
         # TODO port the triangle-indices node func drawTriangleIndices(...)
+        indsNp = ConstrainedDelaunayTriangulator.drawTriangleIndices(triangulator.getTriangleList())
+        indsNp.setPos(0.0, 0.0, 0.3)
         render.ls()
 
 

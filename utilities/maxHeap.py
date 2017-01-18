@@ -39,9 +39,11 @@ class MaxHeap(list):
     # def test(heap):
     #     for i in range(len(heap), -)
 
-    def __init__(self, args=[]):
+    def __init__(self, args=[], gtFunc=None, ltFunc=None):
         super(MaxHeap, self).__init__(args)
         self.heapSize = len(args)
+        self.gtFunc = gtFunc
+        self.ltFunc = ltFunc
         if args:
             notify.warning("buildHeap __init__")
             self.buildHeap()
@@ -55,18 +57,24 @@ class MaxHeap(list):
         while True:
             l = MaxHeap.lChildOf(i)
             r = MaxHeap.rChildOf(i)
-            if l <= self.heapSize - 1 and self[l] > self[i]:
+            # if there is a custom comparison func us it
+            if self.gtFunc is None:
+                _gt_ = lambda a, b: self[a] > self[b]
+            else:
+                _gt_ = lambda a, b: self.gtFunc(self[a], self[b])
+
+            if l <= self.heapSize - 1 and _gt_(l, i):
                 largest = l
             else:
                 largest = i
-            if r <= self.heapSize - 1 and self[r] > self[largest]:
+            if r <= self.heapSize - 1 and _gt_(r, largest):
                 largest = r
             if largest != i:
                 tmp = self[i]
                 self[i] = self[largest]
                 self[largest] = tmp
                 i = largest
-                self._heapify(largest)
+                # self._heapify(largest)  No Recursion
             else:
                 return None
 
@@ -84,17 +92,17 @@ class MaxHeap(list):
             # notify.warning("part heap {0}".format(self))
 
     def _increaseKey(self, i, key):
-        notify.warning("i {0} self[i] {1} > key {2}".format(i, self[i], key))
-        if key < self[i]:
+        isLegal = key < self[i] if self.ltFunc is None else self.ltFunc(key, self[i])
+        if isLegal:
             raise ValueError("The new key is smaller than the current key.")
         self[i] = key
-        while i > 0 and self[MaxHeap.parentIndexOf(i)] < self[i]:
-            notify.warning("parent(i) {0} i {1}".format(MaxHeap.parentIndexOf(i), i))
+        parentIsLess = (lambda i: self[MaxHeap.parentIndexOf(i)] < self[i] if self.ltFunc is None
+                        else lambda i: self.ltFunc(self[MaxHeap.parentIndexOf(i)], self[i]))
+        while i > 0 and parentIsLess(i):
             tmp = self[i]
             self[i] = self[MaxHeap.parentIndexOf(i)]
             self[MaxHeap.parentIndexOf(i)] = tmp
             i = MaxHeap.parentIndexOf(i)
-            notify.warning("heap key++ {0} size {1}".format(self, self.heapSize))
 
     def peek(self):
         if self.heapSize > 0:

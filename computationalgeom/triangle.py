@@ -1,14 +1,17 @@
 #!/usr/bin/python
 from collections import namedtuple
-import struct
+import struct, math
 
 from panda3d.core import Geom, GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexRewriter
 from panda3d.core import Thread
 from panda3d.core import Point3
+from direct.directnotify.DirectNotify import DirectNotify
 
 
 from simpleCircle import SimpleCircle  # for the circumcircle
 from utils import getIntersectionBetweenPoints, EPSILON
+
+notify = DirectNotify().newCategory("Trangle")
 
 
 class PrimitiveInterface(object):
@@ -93,6 +96,8 @@ class Triangle(object):
         deg0 = v0.angleDeg(v2)
         deg1 = (-v2).angleDeg(v1)
         deg2 = (-v1).angleDeg(-v0)
+        if min(deg0, deg1, deg2) < EPSILON:
+            return 180.0  # virtually collinear (likely is collinear but is hidden by floating point error)
         assert abs(deg0 + deg1 + deg2 - 180) < EPSILON
         return min(deg0, deg1, deg2)
 
@@ -104,6 +109,7 @@ class Triangle(object):
         return pt0, pt1, pt2
 
     def __init__(self, vindex0, vindex1, vindex2, vertexData, geomTriangles, rewriter):
+        assert vindex0 not in (vindex1, vindex2) and vindex1 not in (vindex0, vindex2)  # prevent duplicate indices
         super(Triangle, self).__init__()
         if Triangle.getDummyMinAngleDeg(vindex0, vindex1, vindex2, rewriter) <= 0:
             rewriter.setRow(vindex0)
@@ -112,7 +118,7 @@ class Triangle(object):
             pt1 = rewriter.getData3f()
             rewriter.setRow(vindex2)
             pt2 = rewriter.getData3f()
-            raise ValueError("Colinear degenerate triangle points: {0} {1} {2}".format(pt0, pt1, pt2))
+            raise ValueError("Collinear degenerate triangle points: {0} {1} {2}".format(pt0, pt1, pt2))
 
         inds = Triangle.getCcwOrder(vindex0, vindex1, vindex2, rewriter)
         geomTriangles.addVertices(*inds)
@@ -196,6 +202,10 @@ class Triangle(object):
         return edge1.angleDeg(edge2)
 
     def getCircumcircle(self):
+        cirSquared = self.getCircumcircleSquared()
+        return SimpleCircle(cirSquared.center, (cirSquared.center - self.point0).length())
+
+    def getCircumcircleSquared(self):
         slf = self.asPointsEnum()
 
         edge1 = slf.point1 - slf.point0
@@ -215,8 +225,7 @@ class Triangle(object):
         pt2 = Point3(tanToVec2 + midPt2)
 
         center = getIntersectionBetweenPoints(midPt1, pt1, pt2, midPt2)
-        # return SimpleCircle(center, (center - slf.point0).length())
-        return SimpleCircle(center, (center - slf.point0).length())
+        return SimpleCircle(center, (center - slf.point0).lengthSquared())
 
     def getEdgeIndices0(self):
         return self.pointIndex0, self.pointIndex1
@@ -233,6 +242,10 @@ class Triangle(object):
 
     def getPointIndices(self):
         return self.pointIndex0, self.pointIndex1, self.pointIndex2
+
+    def getPoints(self):
+        slf = self.asPointsEnum()
+        return slf.point0, slf.point1, slf.point2
 
     def getIntersectionsWithCircumcircle(self, point1, point2, tolerance=EPSILON):
         circle = self.getCircumcircle()
@@ -267,13 +280,18 @@ class Triangle(object):
         edge0 = slf.point1 - slf.point0
         edge1 = slf.point2 - slf.point1
         edge2 = slf.point0 - slf.point2
+
+        testVec0 = point - slf.point0
+        testVec1 = point - slf.point1
+        testVec2 = point - slf.point2
         # BLOG coding defensively. (This would actually be optimal if it shortcuts, but it's best to test assumptions.)
         onEdge = ''
-        if edge0.cross(point - slf.point0).z == 0.0:  # only occurs if the point is on the line.
+        # z ~= zero only occurs if the point is close this edge and the triangle edge must be longer
+        if abs(edge0.cross(point - slf.point0).z) < EPSILON and edge0.lengthSquared() > testVec0.lengthSquared():
             onEdge += '0'
-        if edge1.cross(point - slf.point1).z == 0.0:
+        if abs(edge1.cross(point - slf.point1).z) < EPSILON and edge1.lengthSquared() > testVec1.lengthSquared():
             onEdge += '1'
-        if edge2.cross(point - slf.point2).z == 0.0:
+        if abs(edge2.cross(point - slf.point2).z) < EPSILON and edge2.lengthSquared() > testVec2.lengthSquared():
             onEdge += '2'
 
         return onEdge
