@@ -10,6 +10,7 @@ from panda3d.core import Geom, GeomNode, GeomVertexData, GeomTriangles, GeomVert
 from direct.directnotify.DirectNotify import DirectNotify
 
 from utilities import pandaHelperFuncs as PHF
+from utils import EPSILON
 from constrainedDelaunayTriangulator import ConstrainedDelaunayTriangulator  # Unit test Triangle
 
 
@@ -47,7 +48,7 @@ class Developer(ShowBase):
         # DOC 1.DT) create triangulator
         # DOC 2.DT) add vertices (before calling triangulate)
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
         triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
@@ -61,6 +62,7 @@ class Developer(ShowBase):
         adjLst = triangulator.getAdjacencyList()
         foundError = False  # so I can explicitly state all index references are correct
         for t in adjLst:
+            # check neighbor relations point to correct triangles
             for n in t.getNeighbors(includeEmpties=False):
                 neighbor = adjLst[n]
                 otherInds = neighbor.getPointIndices()
@@ -70,13 +72,40 @@ class Developer(ShowBase):
                     edge = t.edgeIndices1
                 elif neighbor.index == t._neighbor2:
                     edge = t.edgeIndices2
-                if not (edge[0] in otherInds and edge[1] in otherInds):
+                if edge[0] not in otherInds and edge[1] not in otherInds:
                     foundError = True
                     notify.warning("BAD REFERENCE to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
                                    "\nreferred: {3} indices: {4} neighbors: {5}".format(
                                        t.index, t.getPointIndices(), t.getNeighbors(),
                                        neighbor.index, neighbor.getPointIndices(), neighbor.getNeighbors()
                                    ))
+
+        # URGENT check circumcircle calculation seems to give false errors
+        for t in adjLst:
+            circle_ = t.getCircumcircle()
+            # cycle through triangles checking each point against each circle.center
+            for e in adjLst:
+                p0, p1, p2 = e.getPoints()
+
+                if circle_.radius - (p0 - circle_.center).length() > EPSILON:
+                    notify.warning(
+                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                            p0, circle_, t, e
+                    ))
+
+                if circle_.radius - (p1 - circle_.center).length() > EPSILON:
+                    notify.warning(
+                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                            p1, circle_, t, e
+                    ))
+
+                if circle_.radius - (p2 - circle_.center).length() > EPSILON:
+                    notify.warning(
+                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                            p2, circle_, t, e
+                    ))
+
+
         if not foundError:
             notify.warning("No error found in neighbors that were referenced.")
         else:
@@ -173,10 +202,9 @@ class Developer(ShowBase):
         # TODO port the triangle-indices node func drawTriangleIndices(...)
         indsNp = ConstrainedDelaunayTriangulator.drawTriangleIndices(triangulator.getTriangleList())
         indsNp.setPos(0.0, 0.0, 0.3)
-        render.ls()
+        # render.ls()
 
 
 if __name__ == '__main__':
-    print "Yep main"
     app = Developer()
     app.run()
