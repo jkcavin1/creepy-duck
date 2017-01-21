@@ -275,15 +275,15 @@ class ConstrainedDelaunayTriangulator(object):
             # find the triangle the point lays within
             found = ConstrainedDelaunayTriangulator.findContainingTriangle(point, bounds, triangulated)
             if found is not None:
-                # triangulate the point into the triangle, collecting any new triangles
-                newTriangles = found.triangulatePoint(pt, triangulated)
-                # BLOG heapq.merge() is useless as it returns an iterable which can't be index, but heaps require lists
+                # BLOG heapq.merge() is useless as it returns an iterable which can't be indexed, but heaps require lists
                 # BLOG Hence, it's probably faster to heap.push than to iterate (in C) a merge then iterate to recreate a list
                 # BLOG if I use a heap
+                # triangulate the point into the triangle, collecting any new triangles
+                newTriangles = found.triangulatePoint(pt, triangulated)
                 triangulated.extend(newTriangles)
                 if makeDelaunay:
                     for tri in newTriangles:
-                        tri.legalize(triangulated)
+                        tri.legalize(point, triangulated)
             else:
                 raise ValueError("Point given that's outside of original space.")
         notify.warning("triangulated type: {0}".format(type(triangulated)))

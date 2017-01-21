@@ -274,7 +274,7 @@ class Triangle(object):
         return self._primitiveInterface.vdata.getNumRows()
 
     def getOccupiedEdge(self, point, slf=None):
-        if not isinstance(slf, Triangle.TriangleTuple):
+        if slf is None:
             slf = self.asPointsEnum()
 
         edge0 = slf.point1 - slf.point0
@@ -418,6 +418,11 @@ class Triangle(object):
 
     def setIndex(self, value):
         self._selfIndex = value
+
+    def setPointIndices(self, *args):
+        self.pointIndex0 = args[0]
+        self.pointIndex1 = args[1]
+        self.pointIndex2 = args[2]
 
     def __gt__(self, other):
         if isinstance(other, Triangle):

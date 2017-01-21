@@ -47,12 +47,19 @@ class Developer(ShowBase):
 
         # DOC 1.DT) create triangulator
         # DOC 2.DT) add vertices (before calling triangulate)
+        # ############# INFINITE LOOP  BELOW #####################
+        # triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
+        # triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
+        # triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
+        # triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
+        # ############# INFINITE LOOP  ABOVE #####################
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
         # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
-        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
-        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
+        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
