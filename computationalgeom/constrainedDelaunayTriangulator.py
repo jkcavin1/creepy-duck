@@ -271,6 +271,8 @@ class ConstrainedDelaunayTriangulator(object):
                 break
             self._vertexRewriter.setRow(pt)
             point = self._vertexRewriter.getData3f()
+            notify.warning("\n######################## len {} TRIANGULATE {} ###########################\n".format(len(triangulated), point))
+            notify.warning("\n########################## SO FAR\n{}\n############################\n".format([tr.index for tr in triangulated]))
             # find the triangle the point lays within
             found = ConstrainedDelaunayTriangulator.findContainingTriangle(point, bounds, triangulated)
             if found is not None:
@@ -282,10 +284,11 @@ class ConstrainedDelaunayTriangulator(object):
                 triangulated.extend(newTriangles)
                 if makeDelaunay:
                     for tri in newTriangles:
-                        tri.legalize(point, triangulated)
+                        tri.legalize(tri.point0, triangulated)  # point, triangulated)
+                        tri.legalize(tri.point1, triangulated)
+                        tri.legalize(tri.point2, triangulated)
             else:
                 raise ValueError("Point given that's outside of original space.")
-        notify.warning("triangulated type: {0}".format(type(triangulated)))
-        print len(triangulated)
+        notify.warning("triangulated: length: {} type: {}".format(len(triangulated), type(triangulated)))
         self.__polygon = triangulated
 

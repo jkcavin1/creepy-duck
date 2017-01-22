@@ -48,26 +48,30 @@ class Developer(ShowBase):
         # DOC 1.DT) create triangulator
         # DOC 2.DT) add vertices (before calling triangulate)
         # ############# NOT ANGLE OPTIMAL BELOW #####################
-        triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
-        triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
-        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
-        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
-        # ############# NOT ANGLE OPTIMAL ABOVE #####################
         # triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
-        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         # triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         # triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         # triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
+        # ############# NOT ANGLE OPTIMAL ABOVE #####################
+        triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
+        triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
+        triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
+        triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
         # DOC 4.DT) call triangulate
         triangulator.triangulate(makeDelaunay=True)
+        # ######################## REMOVE ###################################
+
+        # ######################## REMOVE ###################################
         assert triangulator.isTriangulated()
         adjLst = triangulator.getAdjacencyList()
-        foundInvalidReference = foundMissingReference = False  # so I can explicitly state all index references are correct
+        foundInvalidReference = []
+        foundMissingReference = []  # so I can explicitly state all index references are correct
 
         for t in adjLst:
             # check that references with no neighbor haven't missed an edge
@@ -90,7 +94,7 @@ class Developer(ShowBase):
                     if edge_[0] in tri_.edgeIndices2 and edge_[1] in tri_.edgeIndices2 and tri_ != t:
                         missedCount += 1
                     if missedCount == 1:
-                        foundMissingReference = True
+                        foundMissingReference.extend((t, tri_))
                         notify.warning(
                             "!MISSED REFERENCE TO NEIGHBOR\nreferrer: {} ptIndices: {} neighbors: {}\n".format(
                                 t.index, t.getPointIndices(), t.getNeighbors(),
@@ -98,7 +102,7 @@ class Developer(ShowBase):
                                 tri_.index, tri_.getPointIndices(), tri_.getNeighbors(),
                         ))
                     elif missedCount > 1:
-                        foundMissingReference = True
+                        foundMissingReference.extend((t, tri_))
                         notify.warning(
                             "!EXTRANEOUS & MISSED SHARED EDGES\nreferrer: {} ptIndices: {} neighbors: {}\n".format(
                                 t.index, t.getPointIndices(), t.getNeighbors(),
@@ -117,7 +121,7 @@ class Developer(ShowBase):
                 elif neighbor.index == t._neighbor2:
                     edge = t.edgeIndices2
                 if edge[0] not in otherInds and edge[1] not in otherInds:
-                    foundInvalidReference = True
+                    foundInvalidReference.extend((t, neighbor))
                     notify.warning(
                         "!INVALID REFERENCE TO NEIGHBOR\nreferrer: {} indices: {} neighbors: {}".format(
                             t.index, t.getPointIndices(), t.getNeighbors(),
@@ -136,6 +140,7 @@ class Developer(ShowBase):
             notify.warning("!!!ERROR found in neighbors that were referenced.")
 
         foundPointInsideCircle = False
+        trianglesWithInvalidPoint = set()
         for t in adjLst:
             circle_ = t.getCircumcircle()
             # cycle through triangles checking each point against each circle.center
@@ -148,6 +153,7 @@ class Developer(ShowBase):
                         "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p0, circle_, t, e
                     ))
+                    trianglesWithInvalidPoint |= set((t.index, ))
 
                 if circle_.radius - (p1 - circle_.center).length() > EPSILON:
                     foundPointInsideCircle = True
@@ -155,6 +161,7 @@ class Developer(ShowBase):
                         "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p1, circle_, t, e
                     ))
+                    trianglesWithInvalidPoint |= set((t.index, ))
 
                 if circle_.radius - (p2 - circle_.center).length() > EPSILON:
                     foundPointInsideCircle = True
@@ -162,11 +169,11 @@ class Developer(ShowBase):
                         "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p2, circle_, t, e
                     ))
-
+                    trianglesWithInvalidPoint |= set((t.index, ))
         if not foundPointInsideCircle:
             notify.warning("No point found inside circumcircle.")
         else:
-            notify.warning("!!!ERROR found point inside circumcircle")
+            notify.warning("!!!ERROR found point inside circumcircle. Triangles: {}".format(trianglesWithInvalidPoint))
         # TODO test edges that reference no neighbor
         # triangles = triangulator.getGeomTriangles()
         # print "Triangulated:"
