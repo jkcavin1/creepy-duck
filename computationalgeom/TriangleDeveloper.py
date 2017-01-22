@@ -55,7 +55,7 @@ class Developer(ShowBase):
         triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
         # ############# NOT ANGLE OPTIMAL ABOVE #####################
         # triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        # # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
         # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         # triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
         # triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
@@ -166,7 +166,7 @@ class Developer(ShowBase):
         if not foundPointInsideCircle:
             notify.warning("No point found inside circumcircle.")
         else:
-            notify.warning("!!!ERROR found in neighbors that were referenced.")
+            notify.warning("!!!ERROR found point inside circumcircle")
         # TODO test edges that reference no neighbor
         # triangles = triangulator.getGeomTriangles()
         # print "Triangulated:"
