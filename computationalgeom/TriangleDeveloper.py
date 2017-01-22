@@ -47,19 +47,19 @@ class Developer(ShowBase):
 
         # DOC 1.DT) create triangulator
         # DOC 2.DT) add vertices (before calling triangulate)
-        # ############# INFINITE LOOP  BELOW #####################
-        # triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        # triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
-        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
-        # triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
-        # triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
-        # ############# INFINITE LOOP  ABOVE #####################
+        # ############# NOT ANGLE OPTIMAL BELOW #####################
         triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
-        # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
-        triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
         triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
         triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
+        # ############# NOT ANGLE OPTIMAL ABOVE #####################
+        # triangulator.addVertexToPolygon(5.0, 0.0, 0.0)
+        # # triangulator.addVertexToPolygon(6.5, 6.5, 0.0)
+        # triangulator.addVertexToPolygon(1.5, 2.5, 0.0)
+        # triangulator.addVertexToPolygon(0.0, 0.0, 0.0)
+        # triangulator.addVertexToPolygon(0.0, 5.0, 0.0)
+        # triangulator.addVertexToPolygon(5.0, 5.0, 0.0)
 
         # DOC 3.DT) add hole vertices (before calling triangulate)
 
@@ -67,9 +67,46 @@ class Developer(ShowBase):
         triangulator.triangulate(makeDelaunay=True)
         assert triangulator.isTriangulated()
         adjLst = triangulator.getAdjacencyList()
-        foundError = False  # so I can explicitly state all index references are correct
+        foundInvalidReference = foundMissingReference = False  # so I can explicitly state all index references are correct
+
         for t in adjLst:
-            # check neighbor relations point to correct triangles
+            # check that references with no neighbor haven't missed an edge
+            noneEdges = []
+            if t._neighbor0 is None:
+                noneEdges.append(t.edgeIndices0)
+            elif t._neighbor1 is None:
+                noneEdges.append(t.edgeIndices1)
+            elif t._neighbor2 is None:
+                noneEdges.append(t.edgeIndices2)
+
+            for tri_ in adjLst:
+                for edge_ in noneEdges:
+                    # the edge that should hold the reference is on t. The one that should get referenced is on tri_
+                    missedCount = 0
+                    if edge_[0] in tri_.edgeIndices0 and edge_[1] in tri_.edgeIndices0 and tri_ != t:
+                        missedCount += 1
+                    if edge_[0] in tri_.edgeIndices1 and edge_[1] in tri_.edgeIndices1 and tri_ != t:
+                        missedCount += 1
+                    if edge_[0] in tri_.edgeIndices2 and edge_[1] in tri_.edgeIndices2 and tri_ != t:
+                        missedCount += 1
+                    if missedCount == 1:
+                        foundMissingReference = True
+                        notify.warning(
+                            "!MISSED REFERENCE TO NEIGHBOR\nreferrer: {} ptIndices: {} neighbors: {}\n".format(
+                                t.index, t.getPointIndices(), t.getNeighbors(),
+                            ) + "missed: {} ptIndices: {} neighbors: {}".format(
+                                tri_.index, tri_.getPointIndices(), tri_.getNeighbors(),
+                        ))
+                    elif missedCount > 1:
+                        foundMissingReference = True
+                        notify.warning(
+                            "!EXTRANEOUS & MISSED SHARED EDGES\nreferrer: {} ptIndices: {} neighbors: {}\n".format(
+                                t.index, t.getPointIndices(), t.getNeighbors(),
+                            ) + "missed: {} ptIndices: {} neighbors: {}".format(
+                                tri_.index, tri_.getPointIndices(), tri_.getNeighbors(),
+                        ))
+
+            # check that neighbor relations point to correct triangles
             for n in t.getNeighbors(includeEmpties=False):
                 neighbor = adjLst[n]
                 otherInds = neighbor.getPointIndices()
@@ -80,14 +117,25 @@ class Developer(ShowBase):
                 elif neighbor.index == t._neighbor2:
                     edge = t.edgeIndices2
                 if edge[0] not in otherInds and edge[1] not in otherInds:
-                    foundError = True
-                    notify.warning("BAD REFERENCE to neighbor\nreferrer: {0} indices: {1} neighbors: {2}" +
-                                   "\nreferred: {3} indices: {4} neighbors: {5}".format(
-                                       t.index, t.getPointIndices(), t.getNeighbors(),
-                                       neighbor.index, neighbor.getPointIndices(), neighbor.getNeighbors()
-                                   ))
+                    foundInvalidReference = True
+                    notify.warning(
+                        "!INVALID REFERENCE TO NEIGHBOR\nreferrer: {} indices: {} neighbors: {}".format(
+                            t.index, t.getPointIndices(), t.getNeighbors(),
+                        ) + "\nreferee: {} indices: {} neighbors: {}".format(
+                            neighbor.index, neighbor.getPointIndices(), neighbor.getNeighbors()
+                    ))
 
-        # URGENT check circumcircle calculation seems to give false errors
+        if not foundMissingReference:
+            notify.warning("No error missing reference in neighbors.")
+        else:
+            notify.warning("!!!ERROR missing reference in neighbor references.")
+
+        if not foundInvalidReference:
+            notify.warning("No error found in neighbors that were referenced.")
+        else:
+            notify.warning("!!!ERROR found in neighbors that were referenced.")
+
+        foundPointInsideCircle = False
         for t in adjLst:
             circle_ = t.getCircumcircle()
             # cycle through triangles checking each point against each circle.center
@@ -95,28 +143,30 @@ class Developer(ShowBase):
                 p0, p1, p2 = e.getPoints()
 
                 if circle_.radius - (p0 - circle_.center).length() > EPSILON:
+                    foundPointInsideCircle = True
                     notify.warning(
-                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                        "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p0, circle_, t, e
                     ))
 
                 if circle_.radius - (p1 - circle_.center).length() > EPSILON:
+                    foundPointInsideCircle = True
                     notify.warning(
-                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                        "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p1, circle_, t, e
                     ))
 
                 if circle_.radius - (p2 - circle_.center).length() > EPSILON:
+                    foundPointInsideCircle = True
                     notify.warning(
-                        "point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
+                        "!point in circumcircle point {0} circle {1}\ntriangle1: {2}\ntriangle2: {3}".format(
                             p2, circle_, t, e
                     ))
 
-
-        if not foundError:
-            notify.warning("No error found in neighbors that were referenced.")
+        if not foundPointInsideCircle:
+            notify.warning("No point found inside circumcircle.")
         else:
-            notify.warning("ERROR found in neighbors that were referenced.")
+            notify.warning("!!!ERROR found in neighbors that were referenced.")
         # TODO test edges that reference no neighbor
         # triangles = triangulator.getGeomTriangles()
         # print "Triangulated:"

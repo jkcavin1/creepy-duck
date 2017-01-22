@@ -74,60 +74,40 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
     # ##################### NEW For Make Delaunay ##########################
     def legalize(self, newPoint, _triangleList):
         # BLOG optimal throw (most of the time there will be a neighbor, hence try rather than if)
+        nei = None
+        if newPoint not in self.edge0:
+            nei = self._neighbor0
+        elif newPoint not in self.edge1:
+            nei = self._neighbor1
+        elif newPoint not in self.edge2:
+            nei = self._neighbor2
+
         try:
-            other = _triangleList[self._neighbor0]
+            other = _triangleList[nei]
         except TypeError:
-            if self._neighbor0 is None:
+            if nei is None:
                 other = None
             else:
                 # http://nedbatchelder.com/blog/200711/rethrowing_exceptions_in_python.html (confirmed to raise original)
                 raise
+
         if other is not None:
-            self.legalizeEdge0(newPoint, other, _triangleList)
+            # get edges not being swapped in other triangle as they will need legalized afterwards
+            sharedParts = self.getSharedFeatures(other)
+            notify.warning("self.edgeIndices0 {} sharedParts.indicesNotShared {}".format(self.edgeIndices0, sharedParts.indicesNotShared))
+            if sharedParts.edge0:
+                followUpEdges = [(self.edgeIndices0[0], sharedParts.indicesNotShared[0]),
+                                 (self.edgeIndices0[1], sharedParts.indicesNotShared[0])]
+            elif sharedParts.edge1:
+                followUpEdges = [(self.edgeIndices1[0], sharedParts.indicesNotShared[0]),
+                                 (self.edgeIndices1[1], sharedParts.indicesNotShared[0])]
+            elif sharedParts.edge2:
+                followUpEdges = [(self.edgeIndices2[0], sharedParts.indicesNotShared[0]),
+                                 (self.edgeIndices2[1], sharedParts.indicesNotShared[0])]
 
-        try:
-            other = _triangleList[self._neighbor1]
-        except TypeError:
-            if self._neighbor1 is None:
-                other = None
-            else:
-                # http://nedbatchelder.com/blog/200711/rethrowing_exceptions_in_python.html (confirmed to raise original)
-                raise
-        if other is not None:
-            self.legalizeEdge0(newPoint, other, _triangleList)
+            self.legalizeEdge(newPoint, other, _triangleList)
 
-        try:
-            other = _triangleList[self._neighbor2]
-        except TypeError:
-            if self._neighbor2 is None:
-                other = None
-            else:
-                # http://nedbatchelder.com/blog/200711/rethrowing_exceptions_in_python.html (confirmed to raise original)
-                raise
-        if other is not None:
-            self.legalizeEdge0(newPoint, other, _triangleList)
-
-        # swappedList = self.legalizeEdge1(_triangleList)
-        # if len(swappedList) > 0:
-        #     # edge 2 is the new edge. Edge 1 needs checked again as it's a different edge.
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     swappedList = self.legalizeEdge1(_triangleList)
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     swappedList = self.legalizeEdge0(_triangleList)
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     return
-        #
-        # swappedList = self.legalizeEdge2(_triangleList)
-        # if len(swappedList) > 0:
-        #     # edge 0 is the new edge. Edge 2 needs checked again as it's a different edge.
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     swappedList = self.legalizeEdge2(_triangleList)
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     swappedList = self.legalizeEdge1(_triangleList)
-        #     ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(swappedList, _triangleList)
-        #     return
-
-    def legalizeEdge0(self, newPoint, other, _triangleList):
+    def legalizeEdge(self, newPoint, other, _triangleList):
         """
         Maximizes the minimum angle by swapping the edge, if need be.
         Returns the other triangle if a swap occurred, None if not.
@@ -152,10 +132,10 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             trianglesSwapped.extend(self.getNeighbors(includeEmpties=False))
             trianglesSwapped.extend(other.getNeighbors(includeEmpties=False))
             trianglesSwapped.extend((self.index, other.index))
-            notify.warning("legalizeEdge0 self {0}:{1} n:{2}".format(self.index,
+            notify.warning("legalizeEdge self {0}:{1} n:{2}".format(self.index,
                                                                      self.getPointIndices(),
                                                                      self.getNeighbors()))
-            notify.warning("legalizeEdge0 other {0}:{1} n:{2}".format(other.index,
+            notify.warning("legalizeEdge other {0}:{1} n:{2}".format(other.index,
                                                                       other.getPointIndices(),
                                                                       other.getNeighbors()))
             # swap self. Set other to its new edge.
@@ -202,7 +182,7 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
                     unsharedEdge1, unsharedEdge2, self.edge0, self.edge1, self.edge2,
                 ))
             if nextOther is not None:
-                self.legalizeEdge0(newPoint, nextOther, _triangleList)
+                self.legalizeEdge(newPoint, nextOther, _triangleList)
 
             nextOther = None
             if (unsharedEdge1[0] in other.edgeIndices0 and unsharedEdge1[1] in other.edgeIndices0 or
@@ -223,10 +203,10 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
 
             # assert foundEdges == 2
             if nextOther is not None:
-                other.legalizeEdge0(newPoint, nextOther, _triangleList)
+                other.legalizeEdge(newPoint, nextOther, _triangleList)
 
         else:
-            notify.warning("legalizeEdge0 isLegal => no swap")
+            notify.warning("legalizeEdge isLegal => no swap")
 
 
     def _getDummiesAndAngles(self, sharedFeatures):
@@ -365,35 +345,48 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
         slf = self.asPointsEnum()
         newTriangles = []
         global notify
-        notify.warning("Triangulate Point\n\tself: {0}".format(self))
+        notify.warning("Triangulate Point\n\tpoint: {}\n\tself: {}".format(point, self))
         oldTriangles = [self, ]
         if self.containsPoint(point, includeEdges=False):
-            newTriangles.extend(self._triangulateSelf(pointIndex, _triangleList))
-            notify.warning("containsPoint neighbors: {0}".format(self.getNeighbors()))
+            notify.warning("containsPoint self:\n\t{0}".format(self))
+            newTriangle, _ = self._triangulateSelf(pointIndex, _triangleList)
+            if newTriangle is None:
+                return newTriangles
+            notify.warning("containsPoint newTriangle:\n\t{0}".format(newTriangle))
+            newTriangles.append(newTriangle)
         else:
             # if the point is on the edge
             newTriangle, onEdge = self._triangulateOnEdge(pointIndex, point, slf)
+            if newTriangle is None:
+                return []
             notify.warning("_triangulateOnEdge() neighbors: {0}".format(self.getNeighbors()))
             if onEdge == '0' and self._neighbor0 is not None:  # triangulate the neighbor on the edge incident to the point
                 other = _triangleList[self._neighbor0]
                 oldTriangles.append(other)
                 newTriangles.append(newTriangle)
-                newTriangles.append(other._triangulateOnEdge(pointIndex, point, self)[0])
+                newTriangle2, _ = other._triangulateOnEdge(pointIndex, point, self)
+                if newTriangle2 is not None:
+                    newTriangles.append(newTriangle2)
                 notify.warning("'0' _triangulateOtherEdge()")
             elif onEdge == '1' and self._neighbor1 is not None:
                 other = _triangleList[self._neighbor1]
                 oldTriangles.append(other)
                 newTriangles.append(newTriangle)
-                newTriangles.append(other._triangulateOnEdge(pointIndex, point, self)[0])
+                newTriangle2, _ = other._triangulateOnEdge(pointIndex, point, self)
+                if newTriangle2 is not None:
+                    newTriangles.append(newTriangle2)
                 notify.warning("'1' _triangulateOtherEdge()")
             elif onEdge == '2' and self._neighbor2 is not None:
                 other = _triangleList[self._neighbor2]
                 oldTriangles.append(other)
                 newTriangles.append(newTriangle)
-                newTriangles.append(other._triangulateOnEdge(pointIndex, point, self)[0])
+                newTriangle2, _ = other._triangulateOnEdge(pointIndex, point, self)
+                if newTriangle2 is not None:
+                    newTriangles.append(newTriangle2)
                 notify.warning("'2' _triangulateOtherEdge()")
             else:
-                notify.warning("No change. The edge was None.")
+                notify.warning("No change. The edge was None. newTriangle {}".format(newTriangle))
+
                 newTriangles.append(newTriangle)  # the edge was none
             # get the old triangle neighbors
             oldies = oldTriangles[:]
@@ -410,11 +403,12 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
                 oldies.extend(naybs)
 
             ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(newTriangles + oldies)
-
         return newTriangles
 
     def _triangulateSelf(self, pointIndex, _triangleList):
         """Triangulate the triangle when the dividing point occurs in the interior of this triangle."""
+        if pointIndex in (self.pointIndex0, self.pointIndex1, self.pointIndex2):
+            return []
         # the new point always takes the original triangle's point1
         pInd2 = self.pointIndex2
         pInd1 = self.pointIndex1
@@ -430,28 +424,14 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
                                                             self._primitiveInterface.vdata,
                                                             self._primitiveInterface.primitives,
                                                             self._rewriter)
-        # fix the neighbor assignments
-        # newTriangle1 is always on edge0. And, newTriangle2 is always on  edge1.
-        # Any original neighbors on those edges need notified of the new triangle
-        if self._neighbor0 is not None:
-            _triangleList[self._neighbor0].setNewNeighbor(newTriangle1)
-        if self._neighbor1 is not None:
-            _triangleList[self._neighbor1].setNewNeighbor(newTriangle2)
-        # the rest of the assignments are between the original and the two new triangles
-        newTriangle1._neighbor2 = self.index
-        newTriangle1._neighbor1 = newTriangle2.index
-        newTriangle1._neighbor0 = self._neighbor0
-        self._neighbor0 = newTriangle1.index
-
-        newTriangle2._neighbor0 = newTriangle1.index
-        newTriangle2._neighbor1 = self._neighbor1
-        self._neighbor1 = newTriangle2.index
-        newTriangle2._neighbor2 = self.index
-        # return the new triangles in numerical order according to their triangle index
-        if newTriangle1 < newTriangle2:
-            return newTriangle1, newTriangle2
-        else:
-            return newTriangle2, newTriangle1
+        listToFix = [newTriangle1, newTriangle2]
+        listToFix.append(self)
+        naybs = list(self.getNeighbors(includeEmpties=False))
+        for n in range(0, len(naybs)):
+            naybs[n] = _triangleList[naybs[n]]
+        listToFix.extend(naybs)
+        ConstrainedDelaunayAdjacencyTriangle.setAllNeighbors(listToFix)
+        return [newTriangle1, newTriangle2]
 
     def _triangulateOnEdge(self, pointIndex, point, slf):
         """Triangulate the triangle when the dividing point lies in the boundary."""
@@ -459,6 +439,9 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             slf = self.asPointsEnum()
         onEdge = self.getOccupiedEdge(point, slf)
         originalInds = self.getPointIndices()
+        if pointIndex in originalInds:
+            return None, onEdge
+        notify.warning("in _triangulateOnEdge()\n\tonEdge {}".format(onEdge))
         if onEdge == '0':
             reformedTrianglePointsI = (originalInds[0], pointIndex, originalInds[2])
             newTrianglePointsI = (originalInds[1], originalInds[2], pointIndex)
@@ -472,8 +455,9 @@ class ConstrainedDelaunayAdjacencyTriangle(Triangle):
             raise ValueError("Triangulation of point that is not on this triangle's edge: " +
                              str(point) + " triangle: " + self.__str__())
         elif len(onEdge) > 1:
-            raise ValueError("Triangulation of point that's already a triangulated point: " +
-                             str(point) + " triangle: " + self.__str__())
+            return None, onEdge
+            # raise ValueError("Triangulation of point that's already a triangulated point: " +
+            #                  str(point) + " triangle: " + self.__str__())
         else:
             raise ValueError("Unknown Error with point on edge point:" + str(point) + " edge: " + onEdge + self.__str__())
 

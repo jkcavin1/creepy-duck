@@ -345,13 +345,16 @@ class Triangle(object):
             d['numSharedPoints'] += 1
             d['indicesNotShared'] = filter(lambda i: i != selfInds[2], d['indicesNotShared'])
             d['otherIndicesNotShared'] = filter(lambda i: i != selfInds[2], d['otherIndicesNotShared'])
-        t = namedtuple('SharedNamedTuple', d.keys())
-        nt = t(*d.values())
+        SharedNamedTuple = namedtuple('SharedNamedTuple', [
+            'numSharedPoints',
+            'point0', 'point1', 'point2',
+            'edge0', 'edge1', 'edge2',
+            'indicesNotShared',
+            'otherIndicesNotShared',
+            'other'
+        ])
+        nt = SharedNamedTuple(**d)
         return nt
-        # if shared:
-        #     return nt
-        # else:
-        #     return
 
     def getVec0(self):
         slf = self.asPointsEnum()

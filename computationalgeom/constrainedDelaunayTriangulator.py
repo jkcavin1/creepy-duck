@@ -65,7 +65,7 @@ class ConstrainedDelaunayTriangulator(object):
             tri = triangles.popleft()
             if tri.containsPoint(point):
                 return tri
-            triangles.extend([fullList[n] for n in tri.getNeighbors(includeEmpties=False)])
+            triangles.extend(tri.getNeighbors(includeEmpties=False)])
         raise ValueError("Point added that's outside of the bounded space {0}".format(point))
 
     def __init__(self, vertexName='ConstrainedDelaunayTriangles', vertexFormat=GeomVertexFormat.getV3(),
