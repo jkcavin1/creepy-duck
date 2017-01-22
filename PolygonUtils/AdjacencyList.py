@@ -157,7 +157,6 @@ class AdjacencyList(object):
 
 
 
-
 def makeTriMesh( verts, holeVerts=[[]]):
     pointmap = (lambda x, y: (x, y, 0))
     if not holeVerts:

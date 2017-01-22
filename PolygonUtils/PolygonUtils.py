@@ -71,17 +71,6 @@ def getCenterOfPoints3D(points):
         z = z + i.z
     return Point3(x/n, y/n, z/n)
 
-def getLeftPt(pt, ptPair):
-    """Takes the center of two points then returns the left point as viewed from a third point (1st parameter)."""
-    midPt = getCenterOfPoints3D(ptPair)
-    vecToMid = midPt - pt
-    vecToPt1 = ptPair[0] - pt
-    # the point on the leftVec has a negative z in its cross product with the middle point
-    if vecToPt1.cross(vecToMid).z < 0:
-        return ptPair[0]
-    else:
-        return ptPair[1]
-
 
 def getDistToLine(pt, linePt1, linePt2):
     """Given a point and two points on the line, return the distance from the point to the line."""
@@ -120,6 +109,18 @@ def getNearestPointOnLine( pt, line, asLineSeg=False):
                 ptOnLine = line[0]
 
     return ptOnLine
+
+
+def getLeftPt(pt, ptPair):
+    """Takes the center of two points then returns the left point as viewed from a third point (1st parameter)."""
+    midPt = getCenterOfPoints3D(ptPair)
+    vecToMid = midPt - pt
+    vecToPt1 = ptPair[0] - pt
+    # the point on the leftVec has a negative z in its cross product with the middle point
+    if vecToPt1.cross(vecToMid).z < 0:
+        return ptPair[0]
+    else:
+        return ptPair[1]
 
 
 def makeWedge(line1, line2):
